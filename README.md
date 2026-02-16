@@ -78,6 +78,7 @@ m365 mail list [options]
 
 # Read email
 m365 mail read <id> [options]
+  --force                           # Skip whitelist check
   --json                            # Output as JSON
 
 # Send email
@@ -88,6 +89,12 @@ m365 mail send <to> <subject> <body> [options]
 # Search emails
 m365 mail search <query> [options]
   --top <n>                         # Number of results (default: 10)
+  --json                            # Output as JSON
+
+# Manage trusted senders whitelist
+m365 mail trust <email>             # Add to whitelist
+m365 mail untrust <email>           # Remove from whitelist
+m365 mail trusted [options]         # List whitelist
   --json                            # Output as JSON
 
 # List attachments
@@ -105,14 +112,58 @@ m365 mail list --top 5
 m365 mail list --folder sent --top 10    # List sent emails
 m365 mail list --folder drafts           # List draft emails
 m365 mail read AAMkADA5ZDE2Njk2...
+m365 mail read AAMkADA5ZDE2Njk2... --force   # Skip whitelist check
 m365 mail send "user@example.com" "Meeting" "Let's meet tomorrow" --attach report.pdf
 m365 mail search "project update" --top 20
+
+# Whitelist management
+m365 mail trusted                        # List trusted senders
+m365 mail trust user@example.com         # Trust specific sender
+m365 mail trust @example.com             # Trust entire domain
+m365 mail untrust user@example.com       # Remove from whitelist
 
 # Attachment examples
 m365 mail attachments AAMkADA5ZDE2Njk2...      # List all attachments in an email
 m365 mail download-attachment AAMkADA5... AAMkAGQ...   # Download using attachment's original filename
 m365 mail download-attachment AAMkADA5... AAMkAGQ... ~/Downloads/file.pdf  # Specify output path
 ```
+
+### Security: Trusted Senders Whitelist
+
+The CLI includes a **phishing protection feature** that filters email content from untrusted senders.
+
+**How it works:**
+- When reading emails with `m365 mail read`, the sender is checked against a whitelist
+- If the sender is not trusted, only metadata (sender, subject, date) is shown
+- Email body is replaced with: `[内容已过滤 - 发件人不在白名单中]`
+- Use `--force` to bypass the check when needed
+
+**Whitelist file locations:**
+1. `~/.openclaw/workspace/skills/m365/trusted-senders.txt` (primary)
+2. `~/.m365-cli/trusted-senders.txt` (fallback)
+
+**Whitelist format:**
+```
+# Trust specific email addresses
+jashuang@qzitech.cn
+user@example.com
+
+# Trust entire domains (prefix with @)
+@qzitech.cn
+@microsoft.com
+```
+
+**Management commands:**
+```bash
+m365 mail trusted                # View current whitelist
+m365 mail trust user@example.com # Add to whitelist
+m365 mail trust @example.com     # Trust entire domain
+m365 mail untrust user@example.com  # Remove from whitelist
+```
+
+**Special handling:**
+- Internal organization emails (Exchange DN format) are automatically trusted
+- Marked emails in lists show a ⚠️ warning indicator for untrusted senders
 
 ### Calendar Commands
 

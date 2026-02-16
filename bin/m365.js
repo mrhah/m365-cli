@@ -73,9 +73,11 @@ mailCommand
   .command('read')
   .description('Read email by ID')
   .argument('<id>', 'Email ID')
+  .option('--force', 'Skip whitelist check and show full content')
   .option('--json', 'Output as JSON')
   .action(async (id, options) => {
     await mailCommands.read(id, {
+      force: options.force,
       json: options.json,
     });
   });
@@ -128,6 +130,38 @@ mailCommand
   .option('--json', 'Output as JSON')
   .action(async (messageId, attachmentId, localPath, options) => {
     await mailCommands.downloadAttachment(messageId, attachmentId, localPath, {
+      json: options.json,
+    });
+  });
+
+mailCommand
+  .command('trust')
+  .description('Add email or domain to whitelist')
+  .argument('<email>', 'Email address or domain (e.g., user@example.com or @example.com)')
+  .option('--json', 'Output as JSON')
+  .action(async (email, options) => {
+    await mailCommands.trust(email, {
+      json: options.json,
+    });
+  });
+
+mailCommand
+  .command('untrust')
+  .description('Remove email or domain from whitelist')
+  .argument('<email>', 'Email address or domain to remove')
+  .option('--json', 'Output as JSON')
+  .action(async (email, options) => {
+    await mailCommands.untrust(email, {
+      json: options.json,
+    });
+  });
+
+mailCommand
+  .command('trusted')
+  .description('List trusted senders whitelist')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    await mailCommands.trusted({
       json: options.json,
     });
   });

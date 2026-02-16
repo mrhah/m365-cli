@@ -89,7 +89,10 @@ export function outputMailList(mails, options = {}) {
     const subject = truncate(mail.subject || '(No subject)', 50);
     const date = formatDate(mail.receivedDateTime);
     
-    console.log(`[${index + 1}] ${status} ${subject}`);
+    // Add warning for untrusted senders
+    const trustIndicator = mail.isTrusted === false ? ' ⚠️' : '';
+    
+    console.log(`[${index + 1}] ${status} ${subject}${trustIndicator}`);
     console.log(`    From: ${from}`);
     console.log(`    Date: ${date}`);
     console.log(`    ID: ${mail.id?.slice(0, 20)}...`);
@@ -119,6 +122,15 @@ export function outputMailDetail(mail, options = {}) {
   console.log(`To: ${mail.toRecipients?.map(r => r.emailAddress?.address).join(', ') || 'Unknown'}`);
   console.log(`Date: ${formatDate(mail.receivedDateTime)}`);
   console.log(`Status: ${mail.isRead ? '✅ Read' : '📩 Unread'}`);
+  
+  // Show trust status
+  if (mail.isTrusted === false) {
+    console.log(`⚠️  Sender not in whitelist - content filtered`);
+  }
+  if (mail.bodyFiltered) {
+    console.log(`💡 Use --force to view full content`);
+  }
+  
   console.log('━'.repeat(60));
   console.log('');
   
