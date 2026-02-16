@@ -318,15 +318,163 @@ Credentials are stored at: `~/.openclaw/workspace/creds/.m365-creds`
 
 ### Azure AD Application
 
-This tool uses the following Azure AD configuration:
+#### Option 1: Use Existing Application (Quick Start)
+
+This tool comes pre-configured with a shared Azure AD application:
 - **Tenant ID**: `5b4c4b46-4279-4f19-9e5d-84ea285f9b9c`
 - **Client ID**: `091b3d7b-e217-4410-868c-01c3ee6189b6`
 
-To use your own Azure AD app:
+No additional setup required — just run `m365 login` and you're ready to go.
+
+#### Option 2: Create Your Own Azure AD Application
+
+For production use or organizational requirements, you can register your own Azure AD application.
+
+##### Prerequisites
+
+- Access to **Azure Portal** or **Azure CLI**
+- Azure AD / Microsoft Entra ID tenant
+- **Permissions**: Global Administrator or Application Administrator role
+
+##### Method 1: Azure Portal (Recommended for First-Time Setup)
+
+**Step 1: Create the Application**
+
+1. Sign in to [Azure Portal](https://portal.azure.com)
+2. Navigate to: **Microsoft Entra ID** > **App registrations** > **New registration**
+3. Configure the application:
+   - **Name**: `M365 CLI` (or your preferred name)
+   - **Supported account types**: Select **"Accounts in this organizational directory only (Single tenant)"**
+   - **Redirect URI**: Leave empty (not needed for Device Code Flow)
+4. Click **Register**
+
+**Step 2: Enable Public Client Flow**
+
+1. In your app's page, go to **Authentication** (left sidebar)
+2. Scroll down to **Advanced settings** > **Allow public client flows**
+3. Set **"Enable the following mobile and desktop flows"** to **Yes**
+4. Click **Save** at the top
+
+> ⚠️ **Important**: This setting is required for Device Code Flow authentication.
+
+**Step 3: Configure API Permissions**
+
+1. Go to **API permissions** (left sidebar)
+2. Click **Add a permission** > **Microsoft Graph** > **Delegated permissions**
+3. Add the following permissions:
+   - `Mail.ReadWrite` - Read and write mail
+   - `Mail.Send` - Send mail as the user
+   - `Calendars.ReadWrite` - Read and write calendar events
+   - `Files.ReadWrite.All` - Read and write all files the user can access
+   - `Sites.ReadWrite.All` - Read and write SharePoint sites
+   - `User.Read` - Sign in and read user profile (added by default)
+4. Click **Add permissions**
+5. Click **Grant admin consent for [Your Organization]** (admin approval required)
+6. Confirm by clicking **Yes**
+
+> 💡 **Tip**: Admin consent allows all users in your organization to use the app without individual approval.
+
+**Step 4: Get Configuration Values**
+
+1. Go to **Overview** page
+2. Copy the following values:
+   - **Application (client) ID** → This is your `CLIENT_ID`
+   - **Directory (tenant) ID** → This is your `TENANT_ID`
+
+**Step 5: Configure the CLI**
+
+Choose one of these methods:
+
+**Option A: Environment Variables (Recommended)**
 ```bash
 export M365_TENANT_ID="your-tenant-id"
 export M365_CLIENT_ID="your-client-id"
 ```
+
+Add these to your `~/.bashrc` or `~/.zshrc` to make them permanent.
+
+**Option B: Configuration File**
+
+Edit `config/default.json`:
+```json
+{
+  "tenantId": "your-tenant-id",
+  "clientId": "your-client-id"
+}
+```
+
+##### Method 2: Azure CLI (One-Command Setup)
+
+If you have [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli) installed:
+
+```bash
+# Login to Azure
+az login
+
+# Create the application
+APP_ID=$(az ad app create \
+  --display-name "M365 CLI" \
+  --sign-in-audience AzureADMyOrg \
+  --enable-access-token-issuance true \
+  --query appId -o tsv)
+
+echo "Created app with ID: $APP_ID"
+
+# Enable public client flow
+az ad app update --id $APP_ID --is-fallback-public-client true
+
+# Add Microsoft Graph permissions
+# Permission IDs for Microsoft Graph (00000003-0000-0000-c000-000000000000):
+#   User.Read: e1fe6dd8-ba31-4d61-89e7-88639da4683d
+#   Mail.ReadWrite: e2a3a72e-5f79-4c64-b1b1-878b674786c9
+#   Mail.Send: e383f46e-2787-4529-855e-0e479a3ffac0
+#   Calendars.ReadWrite: 1ec239c2-d7c9-4623-a91a-a9775856bb36
+#   Files.ReadWrite.All: 5c28f0bf-8a70-41f1-8ab2-9032436ddb65
+#   Sites.ReadWrite.All: 89fe6a52-be36-487e-b7d8-d061c450a026
+
+az ad app permission add --id $APP_ID \
+  --api 00000003-0000-0000-c000-000000000000 \
+  --api-permissions \
+    e1fe6dd8-ba31-4d61-89e7-88639da4683d=Scope \
+    e2a3a72e-5f79-4c64-b1b1-878b674786c9=Scope \
+    e383f46e-2787-4529-855e-0e479a3ffac0=Scope \
+    1ec239c2-d7c9-4623-a91a-a9775856bb36=Scope \
+    5c28f0bf-8a70-41f1-8ab2-9032436ddb65=Scope \
+    89fe6a52-be36-487e-b7d8-d061c450a026=Scope
+
+# Grant admin consent
+az ad app permission admin-consent --id $APP_ID
+
+# Get tenant ID
+TENANT_ID=$(az account show --query tenantId -o tsv)
+
+# Display configuration
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "✅ Azure AD Application Created Successfully"
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "Tenant ID:  $TENANT_ID"
+echo "Client ID:  $APP_ID"
+echo ""
+echo "Configure the CLI with:"
+echo "export M365_TENANT_ID=\"$TENANT_ID\""
+echo "export M365_CLIENT_ID=\"$APP_ID\""
+```
+
+Copy the output values and configure them as shown in Step 5 above.
+
+##### Verification
+
+After configuration, test the setup:
+
+```bash
+# Login with your custom app
+m365 login
+
+# Test basic functionality
+m365 mail list --top 3
+```
+
+You should see the Device Code Flow prompt. Follow the authentication steps in your browser.
 
 ### Permissions
 
