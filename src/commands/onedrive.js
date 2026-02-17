@@ -5,6 +5,7 @@ import {
   outputOneDriveResult,
   outputOneDriveSearchResults,
   outputOneDriveShareResult,
+  outputOneDriveInviteResult,
 } from '../utils/output.js';
 import { handleError } from '../utils/error.js';
 import { readFile, writeFile } from 'fs/promises';
@@ -271,6 +272,61 @@ export async function shareFile(path, options = {}) {
 }
 
 /**
+ * Invite users to access file (external sharing)
+ */
+export async function inviteFile(path, email, options = {}) {
+  try {
+    const { role = 'read', message = '', notify = true, json = false } = options;
+    
+    if (!path) {
+      throw new Error('文件路径不能为空');
+    }
+    
+    if (!email) {
+      throw new Error('邮箱地址不能为空');
+    }
+    
+    // Validate role
+    if (!['read', 'write'].includes(role)) {
+      throw new Error('权限类型必须是 "read"（查看）或 "write"（编辑）');
+    }
+    
+    // Parse email (support multiple emails separated by comma)
+    const recipients = email.split(',').map(e => e.trim()).filter(e => e);
+    
+    if (recipients.length === 0) {
+      throw new Error('至少需要提供一个有效的邮箱地址');
+    }
+    
+    if (!json) {
+      console.log(`📤 正在创建分享邀请...`);
+      console.log(`   文件: ${path}`);
+      console.log(`   受邀人: ${recipients.join(', ')}`);
+      console.log(`   权限: ${role === 'write' ? '编辑' : '查看'}`);
+      console.log('');
+    }
+    
+    const result = await graphClient.onedrive.invite(path, {
+      recipients,
+      role,
+      message,
+      sendInvitation: notify,
+      requireSignIn: false, // Allow external users with one-time code
+    });
+    
+    outputOneDriveInviteResult(result, { 
+      json, 
+      path, 
+      recipients, 
+      role, 
+      sendInvitation: notify 
+    });
+  } catch (error) {
+    handleError(error, { json: options.json });
+  }
+}
+
+/**
  * Create folder
  */
 export async function createFolder(path, options = {}) {
@@ -361,6 +417,7 @@ export default {
   upload: uploadFile,
   search: searchFiles,
   share: shareFile,
+  invite: inviteFile,
   mkdir: createFolder,
   rm: deleteItem,
 };

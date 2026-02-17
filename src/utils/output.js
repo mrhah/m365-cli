@@ -604,6 +604,47 @@ export function outputOneDriveShareResult(result, options = {}) {
 }
 
 /**
+ * Output OneDrive invite result
+ */
+export function outputOneDriveInviteResult(result, options = {}) {
+  const { json = false, path = '', recipients = [], role = 'read', sendInvitation = true } = options;
+  
+  if (json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  
+  const accessType = role === 'write' ? '编辑' : '查看';
+  const inviteStatus = sendInvitation ? '已发送邮件邀请' : '仅创建权限（未发送邮件）';
+  
+  console.log(`📤 分享邀请创建成功！`);
+  console.log(`   文件路径: ${path}`);
+  console.log(`   权限类型: ${accessType}`);
+  console.log(`   邀请状态: ${inviteStatus}`);
+  console.log(`   受邀人数: ${recipients.length}`);
+  console.log('');
+  
+  if (result.value && result.value.length > 0) {
+    console.log('   受邀用户:');
+    result.value.forEach((permission, index) => {
+      const grantedTo = permission.grantedToIdentitiesV2?.[0] || permission.grantedTo;
+      const email = grantedTo?.user?.email || grantedTo?.user?.id || recipients[index] || '未知';
+      const roles = permission.roles?.join(', ') || role;
+      console.log(`     [${index + 1}] ${email} (${roles})`);
+      
+      if (permission.invitation?.email) {
+        console.log(`         邀请链接已发送到: ${permission.invitation.email}`);
+      }
+    });
+  }
+  
+  if (sendInvitation) {
+    console.log('');
+    console.log('   ℹ️  外部用户将收到邮件邀请，点击链接后需输入一次性验证码访问文件。');
+  }
+}
+
+/**
  * Output SharePoint site list in text format
  */
 export function outputSharePointSiteList(sites, options = {}) {
@@ -788,6 +829,7 @@ export default {
   outputOneDriveResult,
   outputOneDriveSearchResults,
   outputOneDriveShareResult,
+  outputOneDriveInviteResult,
   outputSharePointSiteList,
   outputSharePointLists,
   outputSharePointItems,

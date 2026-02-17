@@ -335,6 +335,24 @@ onedriveCommand
   });
 
 onedriveCommand
+  .command('invite')
+  .description('Invite users to access file (external sharing)')
+  .argument('<path>', 'Path to file')
+  .argument('<email>', 'Email address(es), comma-separated')
+  .option('--role <role>', 'Permission: read or write', 'read')
+  .option('--message <msg>', 'Invitation message')
+  .option('--no-notify', 'Do not send email notification')
+  .option('--json', 'Output as JSON')
+  .action(async (path, email, options) => {
+    await onedriveCommands.invite(path, email, {
+      role: options.role,
+      message: options.message,
+      notify: options.notify,
+      json: options.json,
+    });
+  });
+
+onedriveCommand
   .command('mkdir')
   .description('Create folder')
   .argument('<path>', 'Folder path')

@@ -822,6 +822,51 @@ class GraphClient {
       
       return this.delete(endpoint);
     },
+    
+    /**
+     * Invite users to access file (external sharing)
+     */
+    invite: async (path, options = {}) => {
+      const {
+        recipients = [],
+        role = 'read',
+        message = '',
+        sendInvitation = true,
+        requireSignIn = false,
+      } = options;
+      
+      if (!recipients || recipients.length === 0) {
+        throw new Error('At least one recipient email is required');
+      }
+      
+      // Get item ID first
+      const cleanPath = path.replace(/^\/+|\/+$/g, '');
+      const itemEndpoint = `/me/drive/root:/${cleanPath}`;
+      const item = await this.get(itemEndpoint, {
+        queryParams: { '$select': 'id,name' },
+      });
+      
+      // Prepare recipients array
+      const recipientsList = recipients.map(email => ({
+        email: typeof email === 'string' ? email : email.email,
+      }));
+      
+      // Call invite API
+      const inviteEndpoint = `/me/drive/items/${item.id}/invite`;
+      const payload = {
+        requireSignIn,
+        sendInvitation,
+        roles: [role],
+        recipients: recipientsList,
+      };
+      
+      // Add message if provided
+      if (message) {
+        payload.message = message;
+      }
+      
+      return this.post(inviteEndpoint, payload);
+    },
   };
 }
 
