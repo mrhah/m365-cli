@@ -324,10 +324,12 @@ onedriveCommand
   .description('Create sharing link')
   .argument('<path>', 'Path to file or folder')
   .option('--type <type>', 'Link type: view or edit', 'view')
+  .option('--scope <scope>', 'Share scope: organization, anonymous, or users', 'organization')
   .option('--json', 'Output as JSON')
   .action(async (path, options) => {
     await onedriveCommands.share(path, {
       type: options.type,
+      scope: options.scope,
       json: options.json,
     });
   });

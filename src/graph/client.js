@@ -780,7 +780,7 @@ class GraphClient {
      * Create sharing link
      */
     share: async (path, options = {}) => {
-      const { type = 'view', scope = 'anonymous' } = options;
+      const { type = 'view', scope = 'organization' } = options;
       
       const cleanPath = path.replace(/^\/+|\/+$/g, '');
       const endpoint = `/me/drive/root:/${cleanPath}:/createLink`;

@@ -246,7 +246,7 @@ export async function searchFiles(query, options = {}) {
  */
 export async function shareFile(path, options = {}) {
   try {
-    const { type = 'view', json = false } = options;
+    const { type = 'view', scope = 'organization', json = false } = options;
     
     if (!path) {
       throw new Error('Path is required');
@@ -257,7 +257,12 @@ export async function shareFile(path, options = {}) {
       throw new Error('Type must be "view" or "edit"');
     }
     
-    const result = await graphClient.onedrive.share(path, { type });
+    // Validate scope
+    if (!['organization', 'anonymous', 'users'].includes(scope)) {
+      throw new Error('Scope must be "organization", "anonymous", or "users"');
+    }
+    
+    const result = await graphClient.onedrive.share(path, { type, scope });
     
     outputOneDriveShareResult(result, { json, path, type });
   } catch (error) {
