@@ -175,6 +175,15 @@ export function outputSendResult(result, options = {}) {
   
   console.log('✅ Email sent successfully');
   console.log(`   To: ${result.to}`);
+  
+  if (result.cc) {
+    console.log(`   CC: ${result.cc}`);
+  }
+  
+  if (result.bccCount !== undefined && result.bccCount > 0) {
+    console.log(`   BCC: ${result.bccCount} recipient(s)`);
+  }
+  
   console.log(`   Subject: ${result.subject}`);
   
   if (result.attachments > 0) {

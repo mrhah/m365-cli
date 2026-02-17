@@ -73,11 +73,25 @@ export async function readMail(id, options) {
  */
 export async function sendMail(to, subject, body, options) {
   try {
-    const { attach = [], json = false } = options;
+    const { attach = [], cc, bcc, json = false } = options;
     
     if (!to || !subject || !body) {
       throw new Error('To, subject, and body are required');
     }
+    
+    // Helper function to parse comma-separated emails into recipients array
+    const parseRecipients = (emails) => {
+      if (!emails) return [];
+      return emails
+        .split(',')
+        .map(email => email.trim())
+        .filter(email => email)
+        .map(email => ({
+          emailAddress: {
+            address: email,
+          },
+        }));
+    };
     
     // Build message
     const message = {
@@ -86,14 +100,18 @@ export async function sendMail(to, subject, body, options) {
         contentType: 'HTML',
         content: body,
       },
-      toRecipients: [
-        {
-          emailAddress: {
-            address: to,
-          },
-        },
-      ],
+      toRecipients: parseRecipients(to),
     };
+    
+    // Add CC recipients if specified
+    if (cc) {
+      message.ccRecipients = parseRecipients(cc);
+    }
+    
+    // Add BCC recipients if specified
+    if (bcc) {
+      message.bccRecipients = parseRecipients(bcc);
+    }
     
     // Handle attachments
     if (attach && attach.length > 0) {
@@ -135,6 +153,15 @@ export async function sendMail(to, subject, body, options) {
       subject,
       attachments: attach.length,
     };
+    
+    // Add CC/BCC info to result
+    if (cc) {
+      result.cc = cc;
+    }
+    if (bcc) {
+      // Don't show BCC addresses, just count
+      result.bccCount = parseRecipients(bcc).length;
+    }
     
     outputSendResult(result, { json });
   } catch (error) {

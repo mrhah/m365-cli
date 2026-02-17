@@ -85,14 +85,18 @@ mailCommand
 mailCommand
   .command('send')
   .description('Send an email')
-  .argument('<to>', 'Recipient email address')
+  .argument('<to>', 'Recipient email address(es) (comma-separated)')
   .argument('<subject>', 'Email subject')
   .argument('<body>', 'Email body (HTML supported)')
   .option('-a, --attach <files...>', 'Attach files')
+  .option('--cc <emails>', 'CC recipients (comma-separated)')
+  .option('--bcc <emails>', 'BCC recipients (comma-separated)')
   .option('--json', 'Output as JSON')
   .action(async (to, subject, body, options) => {
     await mailCommands.send(to, subject, body, {
       attach: options.attach || [],
+      cc: options.cc,
+      bcc: options.bcc,
       json: options.json,
     });
   });
