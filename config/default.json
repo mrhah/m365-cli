@@ -11,7 +11,7 @@
   ],
   "graphApiUrl": "https://graph.microsoft.com/v1.0",
   "authUrl": "https://login.microsoftonline.com",
-  "credsPath": "~/.openclaw/workspace/creds/.m365-creds",
+  "credsPath": "~/.m365-cli/credentials.json",
   "deviceCodePollInterval": 5,
   "deviceCodeTimeout": 900,
   "tokenRefreshBuffer": 60

@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Microsoft 365 CLI - Manage Mail, Calendar, and OneDrive from the command line",
   "type": "module",
+  "files": ["bin", "src", "config", "README.md"],
   "main": "src/index.js",
   "bin": {
     "m365": "./bin/m365.js"
@@ -21,7 +22,10 @@
     "calendar",
     "onedrive"
   ],
-  "author": "OpenClaw",
+  "author": "",
+  "repository": { "type": "git", "url": "" },
+  "bugs": { "url": "" },
+  "homepage": "",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"

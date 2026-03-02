@@ -341,13 +341,13 @@ class GraphClient {
      */
     _parseSite: async (site) => {
       // Format 1: Graph API ID (hostname,guid,guid)
-      // Example: "qzitech.sharepoint.com,8bfb5166-...,ea772c4f-..."
+  // Example: "contoso.sharepoint.com,8bfb5166-...,ea772c4f-..."
       if (site.includes(',')) {
         return site;
       }
       
       // Format 2: Site URL with explicit hostname
-      // Example: "qzitech.sharepoint.com:/sites/team"
+  // Example: "contoso.sharepoint.com:/sites/team"
       if (site.includes(':/')) {
         const match = site.match(/^(.+?):\/(.*)/);
         if (!match) {

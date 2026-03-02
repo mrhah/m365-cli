@@ -56,7 +56,7 @@ export async function readMail(id, options) {
       mail.originalBody = mail.body;
       mail.body = {
         contentType: mail.body?.contentType || 'Text',
-        content: '[内容已过滤 - 发件人不在白名单中]\n\n使用 --force 选项可跳过白名单检查。',
+        content: '[Content filtered - sender not in trusted senders list]\n\nUse --force to skip whitelist check.',
       };
     }
     

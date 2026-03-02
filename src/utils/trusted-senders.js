@@ -9,7 +9,6 @@ import { homedir } from 'os';
 
 // Whitelist file paths (check in order)
 const WHITELIST_PATHS = [
-  join(homedir(), '.openclaw/workspace/skills/m365/trusted-senders.txt'),
   join(homedir(), '.m365-cli/trusted-senders.txt'),
 ];
 
@@ -75,7 +74,7 @@ export function isTrustedSender(senderEmail) {
   for (const entry of trustedSenders) {
     const normalized = entry.toLowerCase();
     
-    // Domain match (e.g., @qzitech.cn)
+  // Domain match (e.g., @example.com)
     if (normalized.startsWith('@')) {
       const domain = normalized.substring(1);
       if (normalizedEmail.endsWith(`@${domain}`)) {
@@ -121,10 +120,10 @@ export function addTrustedSender(email) {
       writeFileSync(path, readFileSync(path, 'utf-8') + line, 'utf-8');
     } else {
       // Create new file with header
-      const header = `# M365 邮件信任发件人白名单
-# 每行一个邮箱地址或域名
-# 以 @ 开头表示匹配整个域名（如 @qzitech.cn）
-# 不在此列表的发件人，邮件正文不会被读取
+      const header = `# M365 Trusted Senders Whitelist\n
+# One email address or domain per line\n
+# Lines starting with @ match entire domains (e.g. @example.com)\n
+# Senders not in this list will have their email body filtered out\n
 
 `;
       writeFileSync(path, header + email + '\n', 'utf-8');

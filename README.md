@@ -15,7 +15,13 @@ Modern command-line interface for Microsoft 365 personal accounts (Mail, Calenda
 ## Installation
 
 ```bash
-cd ~/Projects/m365-cli
+npm install -g m365-cli
+```
+
+If you prefer to install from source:
+```bash
+git clone <repo>
+cd m365-cli
 npm install
 npm link
 ```
@@ -135,21 +141,20 @@ The CLI includes a **phishing protection feature** that filters email content fr
 **How it works:**
 - When reading emails with `m365 mail read`, the sender is checked against a whitelist
 - If the sender is not trusted, only metadata (sender, subject, date) is shown
-- Email body is replaced with: `[内容已过滤 - 发件人不在白名单中]`
+- Email body is replaced with: `[Content filtered - sender not in trusted senders list]`
 - Use `--force` to bypass the check when needed
 
-**Whitelist file locations:**
-1. `~/.openclaw/workspace/skills/m365/trusted-senders.txt` (primary)
-2. `~/.m365-cli/trusted-senders.txt` (fallback)
+1. `~/.m365-cli/trusted-senders.txt`
 
 **Whitelist format:**
 ```
 # Trust specific email addresses
-jashuang@qzitech.cn
+user@example.com
+other@example.com
 user@example.com
 
 # Trust entire domains (prefix with @)
-@qzitech.cn
+@example.com
 @microsoft.com
 ```
 
@@ -363,7 +368,7 @@ m365 sp search "quarterly report" --top 20
 
 ### Credentials Location
 
-Credentials are stored at: `~/.openclaw/workspace/creds/.m365-creds`
+Credentials are stored at: `~/.m365-cli/credentials.json`
 
 **Security:** File permissions are set to `600` (owner read/write only). Do not share this file.
 
