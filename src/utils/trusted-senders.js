@@ -12,9 +12,6 @@ const WHITELIST_PATHS = [
   join(homedir(), '.m365-cli/trusted-senders.txt'),
 ];
 
-/**
- * Get the active whitelist file path
- */
 function getWhitelistPath() {
   // Return first existing path
   for (const path of WHITELIST_PATHS) {
@@ -23,8 +20,8 @@ function getWhitelistPath() {
     }
   }
   
-  // Default to second path if none exist
-  return WHITELIST_PATHS[1];
+  // Default to first path if none exist (will be created on first add)
+  return WHITELIST_PATHS[0];
 }
 
 /**
