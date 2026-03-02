@@ -1,5 +1,5 @@
 {
-  "tenantId": "5b4c4b46-4279-4f19-9e5d-84ea285f9b9c",
+  "tenantId": "common",
   "clientId": "091b3d7b-e217-4410-868c-01c3ee6189b6",
   "scopes": [
     "https://graph.microsoft.com/Mail.ReadWrite",
