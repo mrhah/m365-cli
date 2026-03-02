@@ -1,0 +1,18 @@
+{
+  "tenantId": "common",
+  "clientId": "091b3d7b-e217-4410-868c-01c3ee6189b6",
+  "scopes": [
+    "https://graph.microsoft.com/Mail.ReadWrite",
+    "https://graph.microsoft.com/Mail.Send",
+    "https://graph.microsoft.com/Calendars.ReadWrite",
+    "https://graph.microsoft.com/Files.ReadWrite.All",
+    "https://graph.microsoft.com/Sites.ReadWrite.All",
+    "offline_access"
+  ],
+  "graphApiUrl": "https://graph.microsoft.com/v1.0",
+  "authUrl": "https://login.microsoftonline.com",
+  "credsPath": "~/.m365-cli/credentials.json",
+  "deviceCodePollInterval": 5,
+  "deviceCodeTimeout": 900,
+  "tokenRefreshBuffer": 60
+}
