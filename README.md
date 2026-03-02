@@ -2,6 +2,23 @@
 
 Modern command-line interface for Microsoft 365 personal accounts (Mail, Calendar, OneDrive, SharePoint).
 
+## Who is this for?
+
+This CLI is primarily designed for **AI agents** (e.g., [OpenClaw](https://openclaw.ai), and similar agent frameworks) to interact with Microsoft 365 on behalf of users — reading emails, managing calendars, and handling files through natural language workflows.
+
+That said, it works perfectly as a standalone CLI tool for power users who prefer managing M365 from the terminal.
+
+**Agent use cases:**
+- Let your AI assistant read, summarize, and reply to emails
+- Automate calendar management through agent workflows
+- Enable agents to upload/download files on OneDrive
+- Integrate M365 data into multi-step agent pipelines
+
+**Human use cases:**
+- Quick email triage from the terminal
+- Script-friendly JSON output for automation
+- Lightweight M365 access without a heavy GUI
+
 ## Features
 
 - 📧 **Mail**: List, read, send, search emails (with attachments)
