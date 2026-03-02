@@ -447,34 +447,14 @@ For production use or organizational requirements, you can register your own Azu
 
 > 💡 **Tip**: Admin consent allows all users in your organization to use the app without individual approval.
 
-**Step 4: Get Configuration Values**
+**Configure the CLI**
 
-1. Go to **Overview** page
-2. Copy the following values:
-   - **Application (client) ID** → This is your `CLIENT_ID`
-   - **Directory (tenant) ID** → This is your `TENANT_ID`
-
-**Step 5: Configure the CLI**
-
-Choose one of these methods:
-
-**Option A: Environment Variables (Recommended)**
 ```bash
 export M365_TENANT_ID="your-tenant-id"
 export M365_CLIENT_ID="your-client-id"
 ```
 
 Add these to your `~/.bashrc` or `~/.zshrc` to make them permanent.
-
-**Option B: Configuration File**
-
-Edit `config/default.json`:
-```json
-{
-  "tenantId": "your-tenant-id",
-  "clientId": "your-client-id"
-}
-```
 
 ##### Method 2: Azure CLI (One-Command Setup)
 
