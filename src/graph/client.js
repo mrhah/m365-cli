@@ -103,6 +103,21 @@ class GraphClient {
   async delete(endpoint, options = {}) {
     return this.request(endpoint, { ...options, method: 'DELETE' });
   }
+
+  /**
+   * Get current user profile
+   */
+  async getCurrentUser() {
+    return this.get('/me', {
+      queryParams: { '$select': 'id,displayName,mail,userPrincipalName' },
+    });
+  }
+
+  /**
+   * Mail endpoints
+   */
+  mail = {
+  }
   
   /**
    * Mail endpoints

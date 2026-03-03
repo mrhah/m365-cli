@@ -5,6 +5,26 @@ import { outputMailList, outputMailDetail, outputSendResult, outputAttachmentLis
 import { handleError } from '../utils/error.js';
 import { isTrustedSender, addTrustedSender, removeTrustedSender, listTrustedSenders, getWhitelistFilePath } from '../utils/trusted-senders.js';
 
+// Cache for current user's email
+let currentUserEmailCache = null;
+let currentUserEmailWarningShown = false;
+
+async function getCurrentUserEmail() {
+  if (currentUserEmailCache) return currentUserEmailCache;
+  
+  try {
+    const user = await graphClient.getCurrentUser();
+    currentUserEmailCache = user.mail || user.userPrincipalName || null;
+    return currentUserEmailCache;
+  } catch (error) {
+    if (!currentUserEmailWarningShown) {
+      console.error('Warning: Failed to get current user email (need User.Read permission):', error.message);
+      currentUserEmailWarningShown = true;
+    }
+    return null;
+  }
+}
+
 /**
  * Mail commands
  */
@@ -18,12 +38,14 @@ export async function listMails(options) {
     
     const mails = await graphClient.mail.list({ top, folder });
     
+    const currentUserEmail = await getCurrentUserEmail();
+    
     // Mark untrusted senders
     const mailsWithTrustStatus = mails.map(mail => {
       const senderEmail = mail.from?.emailAddress?.address;
       return {
         ...mail,
-        isTrusted: senderEmail ? isTrustedSender(senderEmail) : false,
+        isTrusted: senderEmail ? isTrustedSender(senderEmail, currentUserEmail) : false,
       };
     });
     
@@ -46,9 +68,11 @@ export async function readMail(id, options) {
     
     const mail = await graphClient.mail.get(id);
     
+    const currentUserEmail = await getCurrentUserEmail();
+    
     // Check whitelist unless --force is used
     const senderEmail = mail.from?.emailAddress?.address;
-    const trusted = senderEmail ? isTrustedSender(senderEmail) : false;
+    const trusted = senderEmail ? isTrustedSender(senderEmail, currentUserEmail) : false;
     
     if (!trusted && !force) {
       // Filter content for untrusted senders
@@ -182,12 +206,22 @@ export async function searchMails(query, options) {
     
     const mails = await graphClient.mail.search(query, { top });
     
+    const currentUserEmail = await getCurrentUserEmail();
+    
+    const mailsWithTrustStatus = mails.map(mail => {
+      const senderEmail = mail.from?.emailAddress?.address;
+      return {
+        ...mail,
+        isTrusted: senderEmail ? isTrustedSender(senderEmail, currentUserEmail) : false,
+      };
+    });
+    
     if (!json) {
       console.log(`🔍 Search results for: "${query}"`);
       console.log('');
     }
     
-    outputMailList(mails, { json, top });
+    outputMailList(mailsWithTrustStatus, { json, top });
   } catch (error) {
     handleError(error, { json: options.json });
   }

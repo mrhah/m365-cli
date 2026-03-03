@@ -14,7 +14,8 @@
     "m365": "./bin/m365.js"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "vitest",
+    "test:run": "vitest run",
     "link": "npm link",
     "unlink": "npm unlink -g m365-cli"
   },
@@ -42,5 +43,8 @@
   },
   "dependencies": {
     "commander": "^12.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^4.0.18"
   }
 }
