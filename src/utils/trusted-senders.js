@@ -50,18 +50,27 @@ export function loadTrustedSenders() {
 /**
  * Check if a sender is trusted
  * @param {string} senderEmail - Email address to check
+ * @param {string} [currentUserEmail] - Current user's email address (to trust own emails)
  * @returns {boolean} True if sender is trusted
  */
-export function isTrustedSender(senderEmail) {
+export function isTrustedSender(senderEmail, currentUserEmail) {
   if (!senderEmail) {
     return false;
+  }
+  
+  // Check if sender is the current user (own emails are trusted)
+  if (currentUserEmail) {
+    const normalizedSender = senderEmail.toLowerCase().trim();
+    const normalizedCurrentUser = currentUserEmail.toLowerCase().trim();
+    if (normalizedSender === normalizedCurrentUser) {
+      return true;
+    }
   }
   
   // Handle Exchange DN format (internal mail)
   // These are formatted like: /O=EXCHANGELABS/OU=.../CN=RECIPIENTS/CN=...
   if (senderEmail.startsWith('/O=EXCHANGELABS') || senderEmail.startsWith('/O=EXCHANGE')) {
     // Internal organization mail - consider trusted
-    // In a production environment, you might want to be more selective
     return true;
   }
   
@@ -71,7 +80,7 @@ export function isTrustedSender(senderEmail) {
   for (const entry of trustedSenders) {
     const normalized = entry.toLowerCase();
     
-  // Domain match (e.g., @example.com)
+    // Domain match (e.g., @example.com)
     if (normalized.startsWith('@')) {
       const domain = normalized.substring(1);
       if (normalizedEmail.endsWith(`@${domain}`)) {
@@ -117,10 +126,10 @@ export function addTrustedSender(email) {
       writeFileSync(path, readFileSync(path, 'utf-8') + line, 'utf-8');
     } else {
       // Create new file with header
-      const header = `# M365 Trusted Senders Whitelist\n
-# One email address or domain per line\n
-# Lines starting with @ match entire domains (e.g. @example.com)\n
-# Senders not in this list will have their email body filtered out\n
+      const header = `# M365 Trusted Senders Whitelist
+# One email address or domain per line
+# Lines starting with @ match entire domains (e.g. @example.com)
+# Senders not in this list will have their email body filtered out
 
 `;
       writeFileSync(path, header + email + '\n', 'utf-8');
