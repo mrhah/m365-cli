@@ -382,7 +382,7 @@ export function outputCalendarResult(result, options = {}) {
   }
   
   if (result.start && result.end) {
-    console.log(`   Time: ${formatDate(result.start)} → ${formatDate(result.end)}`);
+    console.log(`   Time: ${result.start} → ${result.end}`);
   }
   
   if (result.id) {
