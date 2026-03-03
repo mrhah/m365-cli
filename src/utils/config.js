@@ -25,8 +25,10 @@ function expandHome(filepath) {
  * Priority: ENV > default config
  */
 export function getConfig(key) {
-  // Check environment variable
-  const envKey = `M365_${key.toUpperCase().replace(/\./g, '_')}`;
+  // Convert camelCase to UPPER_SNAKE_CASE for env var lookup
+  // e.g., 'clientId' -> 'M365_CLIENT_ID', 'tenantId' -> 'M365_TENANT_ID'
+  const snakeKey = key.replace(/([a-z])([A-Z])/g, '$1_$2').replace(/\./g, '_').toUpperCase();
+  const envKey = `M365_${snakeKey}`;
   if (process.env[envKey]) {
     return process.env[envKey];
   }
