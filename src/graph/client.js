@@ -10,6 +10,57 @@ import { ApiError, parseGraphError } from '../utils/error.js';
 class GraphClient {
   constructor() {
     this.baseUrl = config.get('graphApiUrl');
+    this._cachedTimezone = null;
+  }
+  
+  /**
+   * Get user timezone with fallback chain:
+   * 1. M365_TIMEZONE env var / config
+   * 2. Graph API /me/mailboxSettings/timeZone
+   * 3. System timezone (Intl API)
+   * 4. 'UTC' as final fallback
+   */
+  async getTimezone() {
+    // Return cached value if available
+    if (this._cachedTimezone) {
+      return this._cachedTimezone;
+    }
+    
+    // 1. Check config / env var (M365_TIMEZONE)
+    const configTz = config.get('timezone');
+    if (configTz) {
+      this._cachedTimezone = configTz;
+      return configTz;
+    }
+    
+    // 2. Try Graph API mailboxSettings
+    try {
+      const settings = await this.get('/me/mailboxSettings', {
+        queryParams: { '$select': 'timeZone' },
+      });
+      if (settings && settings.timeZone) {
+        this._cachedTimezone = settings.timeZone;
+        return settings.timeZone;
+      }
+    } catch (error) {
+      // 403 = missing MailboxSettings.Read permission, or other API error
+      // Fall through to system timezone
+    }
+    
+    // 3. System timezone via Intl API
+    try {
+      const systemTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      if (systemTz) {
+        this._cachedTimezone = systemTz;
+        return systemTz;
+      }
+    } catch (error) {
+      // Intl not available in some environments
+    }
+    
+    // 4. Final fallback
+    this._cachedTimezone = 'UTC';
+    return 'UTC';
   }
   
   /**
@@ -266,6 +317,8 @@ class GraphClient {
         throw new Error('startDateTime and endDateTime are required');
       }
       
+      const tz = await this.getTimezone();
+      
       const queryParams = {
         'startDateTime': startDateTime,
         'endDateTime': endDateTime,
@@ -287,7 +340,7 @@ class GraphClient {
       const response = await this.get('/me/calendarView', {
         queryParams,
         headers: {
-          'Prefer': 'outlook.timezone="Asia/Shanghai"',
+          'Prefer': `outlook.timezone="${tz}"`,
         },
       });
       
@@ -299,6 +352,7 @@ class GraphClient {
      */
     get: async (id, options = {}) => {
       const { select } = options;
+      const tz = await this.getTimezone();
       
       const queryParams = {};
       if (select) {
@@ -308,7 +362,7 @@ class GraphClient {
       return this.get(`/me/events/${id}`, {
         queryParams,
         headers: {
-          'Prefer': 'outlook.timezone="Asia/Shanghai"',
+          'Prefer': `outlook.timezone="${tz}"`,
         },
       });
     },
@@ -317,9 +371,10 @@ class GraphClient {
      * Create calendar event
      */
     create: async (event) => {
+      const tz = await this.getTimezone();
       return this.post('/me/events', event, {
         headers: {
-          'Prefer': 'outlook.timezone="Asia/Shanghai"',
+          'Prefer': `outlook.timezone="${tz}"`,
         },
       });
     },
@@ -328,9 +383,10 @@ class GraphClient {
      * Update calendar event
      */
     update: async (id, updates) => {
+      const tz = await this.getTimezone();
       return this.patch(`/me/events/${id}`, updates, {
         headers: {
-          'Prefer': 'outlook.timezone="Asia/Shanghai"',
+          'Prefer': `outlook.timezone="${tz}"`,
         },
       });
     },

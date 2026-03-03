@@ -8,12 +8,14 @@
     "https://graph.microsoft.com/Files.ReadWrite.All",
     "https://graph.microsoft.com/Sites.ReadWrite.All",
     "https://graph.microsoft.com/User.Read",
-    "offline_access"
+    "offline_access",
+    "https://graph.microsoft.com/MailboxSettings.Read"
   ],
   "graphApiUrl": "https://graph.microsoft.com/v1.0",
   "authUrl": "https://login.microsoftonline.com",
   "credsPath": "~/.m365-cli/credentials.json",
   "deviceCodePollInterval": 5,
   "deviceCodeTimeout": 900,
-  "tokenRefreshBuffer": 60
+  "tokenRefreshBuffer": 60,
+  "timezone": ""
 }

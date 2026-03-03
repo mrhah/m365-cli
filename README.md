@@ -389,6 +389,30 @@ Credentials are stored at: `~/.m365-cli/credentials.json`
 
 **Security:** File permissions are set to `600` (owner read/write only). Do not share this file.
 
+### Timezone
+
+Calendar events use a timezone for scheduling. The CLI detects the timezone automatically using the following fallback chain:
+
+1. **`M365_TIMEZONE` environment variable** — Set this to override all other detection. Accepts both IANA (e.g., `Asia/Shanghai`) and Windows (e.g., `China Standard Time`) timezone names.
+2. **Graph API mailbox settings** — Reads the timezone configured in your Microsoft 365 mailbox settings (`/me/mailboxSettings`). Requires the `MailboxSettings.Read` permission.
+3. **System timezone** — Falls back to the operating system's timezone via the `Intl` API.
+4. **UTC** — Final fallback if none of the above are available.
+
+To explicitly set a timezone:
+
+```bash
+export M365_TIMEZONE="Asia/Shanghai"
+```
+
+Or in `config/default.json`:
+
+```json
+{
+  "timezone": "Asia/Shanghai"
+}
+```
+
+The detected timezone is cached for the duration of each CLI invocation, so the Graph API is called at most once per command.
 ### Azure AD Application
 
 #### Option 1: Use Existing Application (Quick Start)
@@ -438,6 +462,7 @@ For production use or organizational requirements, you can register your own Azu
    - `Mail.ReadWrite` - Read and write mail
    - `Mail.Send` - Send mail as the user
    - `Calendars.ReadWrite` - Read and write calendar events
+   - `MailboxSettings.Read` - Read user mailbox settings (used for timezone detection)
    - `Files.ReadWrite.All` - Read and write all files the user can access
    - `Sites.ReadWrite.All` - Read and write SharePoint sites
    - `User.Read` - Sign in and read user profile (added by default)
@@ -482,6 +507,7 @@ az ad app update --id $APP_ID --is-fallback-public-client true
 #   Mail.ReadWrite: e2a3a72e-5f79-4c64-b1b1-878b674786c9
 #   Mail.Send: e383f46e-2787-4529-855e-0e479a3ffac0
 #   Calendars.ReadWrite: 1ec239c2-d7c9-4623-a91a-a9775856bb36
+#   MailboxSettings.Read: 87f447af-9fa4-4c32-9dfa-4a57a73d18ce
 #   Files.ReadWrite.All: 5c28f0bf-8a70-41f1-8ab2-9032436ddb65
 #   Sites.ReadWrite.All: 89fe6a52-be36-487e-b7d8-d061c450a026
 
@@ -492,6 +518,7 @@ az ad app permission add --id $APP_ID \
     e2a3a72e-5f79-4c64-b1b1-878b674786c9=Scope \
     e383f46e-2787-4529-855e-0e479a3ffac0=Scope \
     1ec239c2-d7c9-4623-a91a-a9775856bb36=Scope \
+    87f447af-9fa4-4c32-9dfa-4a57a73d18ce=Scope \
     5c28f0bf-8a70-41f1-8ab2-9032436ddb65=Scope \
     89fe6a52-be36-487e-b7d8-d061c450a026=Scope
 
@@ -535,8 +562,11 @@ The application requests the following Microsoft Graph permissions:
 - `Mail.ReadWrite` - Read and write mail
 - `Mail.Send` - Send mail
 - `Calendars.ReadWrite` - Read and write calendar events
+- `MailboxSettings.Read` - Read user mailbox settings (timezone auto-detection)
 - `Files.ReadWrite.All` - Read and write files in OneDrive
 - `Sites.ReadWrite.All` - Read and write SharePoint sites
+
+> **Note:** If you are upgrading from a previous version, run `m365 logout` then `m365 login` to re-authenticate with the new `MailboxSettings.Read` permission.
 
 ## Output Formats
 
