@@ -599,7 +599,7 @@ m365-cli/
 │   └── default.json         # Default configuration
 ├── package.json             # Project metadata
 ├── README.md                # This file
-└── PLAN.md                  # Development roadmap
+└── package.json             # Project metadata
 ```
 
 ## Development
@@ -655,7 +655,6 @@ m365 login
 - [ ] **Phase 4**: Contacts & Advanced Features
 - [ ] **Phase 5**: Optimization & Release
 
-See [PLAN.md](./PLAN.md) for detailed roadmap and implementation notes.
 
 ## Security
 
