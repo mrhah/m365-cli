@@ -84,17 +84,19 @@ export async function createEvent(title, options) {
       startDateTime = start.includes('T') ? start : `${start}T00:00:00`;
       endDateTime = end.includes('T') ? end : `${end}T00:00:00`;
     }
+    // Get user timezone
+    const tz = await graphClient.getTimezone();
     
     // Build event object
     const event = {
       subject: title,
       start: {
         dateTime: startDateTime,
-        timeZone: 'Asia/Shanghai',
+        timeZone: tz,
       },
       end: {
         dateTime: endDateTime,
-        timeZone: 'Asia/Shanghai',
+        timeZone: tz,
       },
       isAllDay: allday,
     };
@@ -127,27 +129,19 @@ export async function createEvent(title, options) {
     // Create event
     const created = await graphClient.calendar.create(event);
     
-    // Build result with properly formatted times
-    // Note: Graph API returns dateTime in the specified timeZone, but without zone suffix
-    // We need to add the timezone suffix for correct display
-    const getTimeWithZone = (timeObj) => {
-      const tz = timeObj.timeZone;
-      if (tz === 'Asia/Shanghai') {
-        return timeObj.dateTime + '+08:00';
-      } else if (tz === 'UTC') {
-        return timeObj.dateTime + 'Z';
-      } else {
-        // For other timezones, use as-is (may not display correctly)
-        return timeObj.dateTime;
-      }
+    // Graph API returns dateTime in the specified timeZone but without offset suffix.
+    // We include the timezone name in the output for clarity.
+    const formatTimeResult = (timeObj) => {
+      return `${timeObj.dateTime} (${timeObj.timeZone})`;
     };
     
     const result = {
       status: 'created',
       id: created.id,
       subject: created.subject,
-      start: getTimeWithZone(created.start),
-      end: getTimeWithZone(created.end),
+      start: formatTimeResult(created.start),
+      end: formatTimeResult(created.end),
+      timeZone: tz,
     };
     
     outputCalendarResult(result, { json });
@@ -174,6 +168,9 @@ export async function updateEvent(id, options) {
       throw new Error('Event ID is required');
     }
     
+    // Get user timezone for any start/end updates
+    const tz = await graphClient.getTimezone();
+    
     // Build update object (only include fields that are provided)
     const updates = {};
     
@@ -185,7 +182,7 @@ export async function updateEvent(id, options) {
       const startDateTime = start.includes('T') ? start : `${start}T00:00:00`;
       updates.start = {
         dateTime: startDateTime,
-        timeZone: 'Asia/Shanghai',
+        timeZone: tz,
       };
     }
     
@@ -193,7 +190,7 @@ export async function updateEvent(id, options) {
       const endDateTime = end.includes('T') ? end : `${end}T00:00:00`;
       updates.end = {
         dateTime: endDateTime,
-        timeZone: 'Asia/Shanghai',
+        timeZone: tz,
       };
     }
     
@@ -217,27 +214,19 @@ export async function updateEvent(id, options) {
     // Update event
     const updated = await graphClient.calendar.update(id, updates);
     
-    // Build result with properly formatted times
-    // Note: Graph API returns dateTime in the specified timeZone, but without zone suffix
-    // We need to add the timezone suffix for correct display
-    const getTimeWithZone = (timeObj) => {
-      const tz = timeObj.timeZone;
-      if (tz === 'Asia/Shanghai') {
-        return timeObj.dateTime + '+08:00';
-      } else if (tz === 'UTC') {
-        return timeObj.dateTime + 'Z';
-      } else {
-        // For other timezones, use as-is (may not display correctly)
-        return timeObj.dateTime;
-      }
+    // Graph API returns dateTime in the specified timeZone but without offset suffix.
+    // We include the timezone name in the output for clarity.
+    const formatTimeResult = (timeObj) => {
+      return `${timeObj.dateTime} (${timeObj.timeZone})`;
     };
     
     const result = {
       status: 'updated',
       id: updated.id,
       subject: updated.subject,
-      start: getTimeWithZone(updated.start),
-      end: getTimeWithZone(updated.end),
+      start: formatTimeResult(updated.start),
+      end: formatTimeResult(updated.end),
+      timeZone: tz,
     };
     
     outputCalendarResult(result, { json });
