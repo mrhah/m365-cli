@@ -173,7 +173,7 @@ class GraphClient {
      */
     search: async (query, options = {}) => {
       const { top = 10 } = options;
-      const escapedSearchQuery = query.replace(/"/g, '\\"');
+      const escapedSearchQuery = query.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
       const escapedFilterQuery = query.replace(/'/g, "''");
 
       const [orgUsersResponse, contactsResponse] = await Promise.all([
