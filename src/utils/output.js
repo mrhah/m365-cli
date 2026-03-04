@@ -280,11 +280,13 @@ export function outputCalendarList(events, options = {}) {
     let timeStr = '';
     if (event.isAllDay) {
       const startDate = new Date(event.start.dateTime);
-      timeStr = `${startDate.toLocaleDateString('en-CA')} (All day)`;
+      const tz = event.start.timeZone || '';
+      timeStr = `${startDate.toLocaleDateString('en-CA')} (All day)${tz ? ` (${tz})` : ''}`;
     } else {
       const start = formatDate(event.start.dateTime);
       const end = formatDate(event.end.dateTime);
-      timeStr = `${start} → ${end}`;
+      const tz = event.start.timeZone || '';
+      timeStr = `${start} → ${end}${tz ? ` (${tz})` : ''}`;
     }
     
     console.log(`[${index + 1}] ${icon} ${subject}`);
@@ -314,10 +316,12 @@ export function outputCalendarDetail(event, options = {}) {
   
   if (event.isAllDay) {
     const startDate = new Date(event.start.dateTime);
-    console.log(`When: ${startDate.toLocaleDateString('en-CA')} (All day)`);
+    const tz = event.start.timeZone || '';
+    console.log(`When: ${startDate.toLocaleDateString('en-CA')} (All day)${tz ? ` (${tz})` : ''}`);
   } else {
-    console.log(`Start: ${formatDate(event.start.dateTime)}`);
-    console.log(`End: ${formatDate(event.end.dateTime)}`);
+    const tz = event.start.timeZone || '';
+    console.log(`Start: ${formatDate(event.start.dateTime)}${tz ? ` (${tz})` : ''}`);
+    console.log(`End: ${formatDate(event.end.dateTime)}${tz ? ` (${tz})` : ''}`);
   }
   
   if (event.location?.displayName) {
@@ -382,7 +386,8 @@ export function outputCalendarResult(result, options = {}) {
   }
   
   if (result.start && result.end) {
-    console.log(`   Time: ${result.start} → ${result.end}`);
+    const tz = result.timeZone ? ` (${result.timeZone})` : '';
+    console.log(`   Time: ${result.start} → ${result.end}${tz}`);
   }
   
   if (result.id) {
