@@ -9,6 +9,7 @@ import mailCommands from '../src/commands/mail.js';
 import calendarCommands from '../src/commands/calendar.js';
 import onedriveCommands from '../src/commands/onedrive.js';
 import sharepointCommands from '../src/commands/sharepoint.js';
+import userCommands from '../src/commands/user.js';
 import { handleError } from '../src/utils/error.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -166,6 +167,24 @@ mailCommand
   .option('--json', 'Output as JSON')
   .action(async (options) => {
     await mailCommands.trusted({
+      json: options.json,
+    });
+  });
+
+// User commands
+const userCommand = program
+  .command('user')
+  .description('Search users and contacts');
+
+userCommand
+  .command('search')
+  .description('Search organization users and personal contacts by name')
+  .argument('<query>', 'Name or email query')
+  .option('-t, --top <number>', 'Maximum number of results per source', '10')
+  .option('--json', 'Output as JSON')
+  .action(async (query, options) => {
+    await userCommands.search(query, {
+      top: parseInt(options.top),
       json: options.json,
     });
   });

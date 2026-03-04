@@ -22,6 +22,7 @@ That said, it works perfectly as a standalone CLI tool for power users who prefe
 ## Features
 
 - 📧 **Mail**: List, read, send, search emails (with attachments)
+- 👤 **User Search**: Resolve names to email addresses from org users + personal contacts
 - 📅 **Calendar**: Manage events (list, create, update, delete)
 - 📁 **OneDrive**: File management (upload, download, search, share)
 - 🌐 **SharePoint**: Site and document management
@@ -150,6 +151,33 @@ m365 mail attachments AAMkADA5ZDE2Njk2...      # List all attachments in an emai
 m365 mail download-attachment AAMkADA5... AAMkAGQ...   # Download using attachment's original filename
 m365 mail download-attachment AAMkADA5... AAMkAGQ... ~/Downloads/file.pdf  # Specify output path
 ```
+
+### User Commands
+
+```bash
+# Search users/contacts by name or email
+m365 user search <query> [options]
+  --top <n>                         # Maximum results per source (default: 10)
+  --json                            # Output as JSON
+```
+
+**Examples:**
+```bash
+m365 user search Jerry
+m365 user search "Alice Johnson" --json
+```
+
+### User Search Implementation Guide
+
+`m365 user search` queries two Microsoft Graph data sources and merges them into one result set:
+
+1. **Organization users** via `/users` with `$search` for `displayName`, `mail`, and `userPrincipalName`
+2. **Personal contacts** via `/me/contacts` with `startswith(...)` matching on contact names
+
+Each match returns name, email, source, and context fields (`department`/`companyName` + `jobTitle`) so AI workflows can:
+1. Search for a human-readable name
+2. Pick the right match from ambiguous results
+3. Reuse the resolved email for commands like `m365 mail send` or calendar attendee lists
 
 ### Security: Trusted Senders Whitelist
 

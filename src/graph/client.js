@@ -11,7 +11,7 @@ class GraphClient {
   constructor() {
     this.baseUrl = config.get('graphApiUrl');
     this._cachedTimezone = null;
-  }
+  };
   
   /**
    * Get user timezone with fallback chain:
@@ -162,6 +162,72 @@ class GraphClient {
     return this.get('/me', {
       queryParams: { '$select': 'id,displayName,mail,userPrincipalName' },
     });
+  }
+
+  /**
+   * User search endpoints
+   */
+  user = {
+    /**
+     * Search org users + personal contacts
+     */
+    search: async (query, options = {}) => {
+      const { top = 10 } = options;
+      const escapedSearchQuery = query.replace(/"/g, '\\"');
+      const escapedFilterQuery = query.replace(/'/g, "''");
+
+      const [orgUsersResponse, contactsResponse] = await Promise.all([
+        this.get('/users', {
+          queryParams: {
+            '$search': `"displayName:${escapedSearchQuery}" OR "mail:${escapedSearchQuery}" OR "userPrincipalName:${escapedSearchQuery}"`,
+            '$top': top,
+            '$select': 'id,displayName,mail,userPrincipalName,department,jobTitle',
+          },
+          headers: {
+            'ConsistencyLevel': 'eventual',
+          },
+        }).catch(() => ({ value: [] })),
+        this.get('/me/contacts', {
+          queryParams: {
+            '$filter': `startswith(displayName,'${escapedFilterQuery}') or startswith(givenName,'${escapedFilterQuery}') or startswith(surname,'${escapedFilterQuery}')`,
+            '$top': top,
+            '$select': 'id,displayName,emailAddresses,companyName,jobTitle',
+          },
+        }).catch(() => ({ value: [] })),
+      ]);
+
+      const orgUsers = (orgUsersResponse.value || [])
+        .map(user => ({
+          id: user.id,
+          name: user.displayName,
+          email: user.mail || user.userPrincipalName || '',
+          department: user.department || '',
+          jobTitle: user.jobTitle || '',
+          source: 'organization',
+        }))
+        .filter(user => user.email);
+
+      const contacts = (contactsResponse.value || [])
+        .map(contact => ({
+          id: contact.id,
+          name: contact.displayName,
+          email: contact.emailAddresses?.[0]?.address || '',
+          department: contact.companyName || '',
+          jobTitle: contact.jobTitle || '',
+          source: 'contact',
+        }))
+        .filter(contact => contact.email);
+
+      const seenEmails = new Set();
+      return [...orgUsers, ...contacts].filter(result => {
+        const key = result.email.toLowerCase();
+        if (seenEmails.has(key)) {
+          return false;
+        }
+        seenEmails.add(key);
+        return true;
+      });
+    },
   }
 
   /**

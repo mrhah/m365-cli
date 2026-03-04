@@ -240,6 +240,37 @@ export function outputAttachmentDownload(result, options = {}) {
 }
 
 /**
+ * Output user search results
+ */
+export function outputUserSearchResults(results, options = {}) {
+  const { json = false, query = '' } = options;
+
+  if (json) {
+    console.log(JSON.stringify(results, null, 2));
+    return;
+  }
+
+  if (!results || results.length === 0) {
+    console.log(`🔍 No matches found for "${query}".`);
+    return;
+  }
+
+  console.log(`👤 User matches for "${query}" (${results.length})`);
+  console.log('━'.repeat(60));
+
+  results.forEach((result, index) => {
+    const context = [result.department, result.jobTitle].filter(Boolean).join(' • ') || 'No additional context';
+    const source = result.source === 'contact' ? 'Personal contact' : 'Organization user';
+
+    console.log(`[${index + 1}] ${result.name || 'Unknown'}`);
+    console.log(`    Email: ${result.email}`);
+    console.log(`    Source: ${source}`);
+    console.log(`    Context: ${context}`);
+    console.log('');
+  });
+}
+
+/**
  * Output generic success message
  */
 export function outputSuccess(message, options = {}) {
