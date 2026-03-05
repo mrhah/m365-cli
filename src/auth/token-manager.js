@@ -164,13 +164,14 @@ export async function getAccessToken() {
   try {
     const refreshed = await refreshToken(creds.refreshToken);
     
-    // Save new credentials
+    // Save new credentials (preserve grantedScopes)
     const newCreds = {
       tenantId: config.get('tenantId'),
       clientId: config.get('clientId'),
       accessToken: refreshed.accessToken,
       refreshToken: refreshed.refreshToken,
       expiresAt: Math.floor(Date.now() / 1000) + refreshed.expiresIn,
+      grantedScopes: creds.grantedScopes || [],
     };
     
     saveCreds(newCreds);
@@ -194,6 +195,7 @@ export async function login() {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
       expiresAt: Math.floor(Date.now() / 1000) + result.expiresIn,
+      grantedScopes: config.get('scopes'),
     };
     
     saveCreds(creds);
@@ -202,6 +204,40 @@ export async function login() {
     console.log(`   Credentials saved to: ${config.getCredsPath()}`);
     
     return true;
+  } catch (error) {
+    throw error;
+  }
+}
+
+/**
+ * Perform login with additional scopes (incremental consent)
+ * Re-authenticates with device code flow including extra scopes
+ * @param {string[]} additionalScopes - Extra scopes to request
+ * @returns {Promise<string>} New access token
+ */
+export async function loginWithScopes(additionalScopes = []) {
+  try {
+    const result = await deviceCodeFlow(additionalScopes);
+    
+    // Merge previously granted scopes with new ones
+    const existingCreds = loadCreds();
+    const previousScopes = existingCreds?.grantedScopes || config.get('scopes');
+    const allScopes = [...new Set([...previousScopes, ...additionalScopes])];
+    
+    const creds = {
+      tenantId: config.get('tenantId'),
+      clientId: config.get('clientId'),
+      accessToken: result.accessToken,
+      refreshToken: result.refreshToken,
+      expiresAt: Math.floor(Date.now() / 1000) + result.expiresIn,
+      grantedScopes: allScopes,
+    };
+    
+    saveCreds(creds);
+    
+    console.log('\n✅ Additional permissions granted!');
+    
+    return result.accessToken;
   } catch (error) {
     throw error;
   }
@@ -233,5 +269,6 @@ export default {
   refreshToken,
   getAccessToken,
   login,
+  loginWithScopes,
   logout,
 };

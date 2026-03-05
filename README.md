@@ -379,7 +379,7 @@ m365 sp upload "contoso.sharepoint.com:/sites/team" ~/report.pdf "Documents/repo
 m365 sp search "quarterly report" --top 20
 ```
 
-**Note:** SharePoint commands require `Sites.ReadWrite.All` permission. If you encounter permission errors, run `m365 logout` then `m365 login` to re-authenticate with updated permissions.
+**Note:** SharePoint permissions (`Sites.ReadWrite.All`) are requested **on-demand**. The first time you run a SharePoint command, the CLI will automatically prompt you to grant the additional permission via Device Code Flow. Subsequent SharePoint commands will work without re-authentication.
 
 ## Configuration
 
@@ -558,15 +558,20 @@ You should see the Device Code Flow prompt. Follow the authentication steps in y
 
 ### Permissions
 
-The application requests the following Microsoft Graph permissions:
+The application requests the following Microsoft Graph permissions at login:
 - `Mail.ReadWrite` - Read and write mail
 - `Mail.Send` - Send mail
 - `Calendars.ReadWrite` - Read and write calendar events
 - `MailboxSettings.Read` - Read user mailbox settings (timezone auto-detection)
 - `Files.ReadWrite.All` - Read and write files in OneDrive
-- `Sites.ReadWrite.All` - Read and write SharePoint sites
+- `User.Read` - Sign in and read user profile
+- `User.ReadBasic.All` - Read basic profiles of other users
+- `Contacts.Read` - Read user contacts
 
-> **Note:** If you are upgrading from a previous version, run `m365 logout` then `m365 login` to re-authenticate with the new `MailboxSettings.Read` permission.
+The following permissions are requested **on-demand** (incremental consent):
+- `Sites.ReadWrite.All` - Read and write SharePoint sites (requested on first SharePoint command)
+
+> **Note:** When you first use a SharePoint command, the CLI will detect the missing permission and automatically initiate a new Device Code Flow to request it. You only need to approve this once — the upgraded token is saved for future use.
 
 ## Output Formats
 
@@ -664,11 +669,9 @@ Tokens refresh automatically. If refresh fails, run `m365 login` again.
 
 ### Permission denied (SharePoint)
 
-SharePoint requires additional permissions. Run:
-```bash
-m365 logout
-m365 login
-```
+SharePoint uses **incremental consent** — the `Sites.ReadWrite.All` permission is requested on-demand. If you encounter a permission error:
+- The CLI will automatically prompt you to grant the SharePoint permission via Device Code Flow.
+- If automatic consent fails, try: `m365 logout` then `m365 login`, and run the SharePoint command again.
 
 ### Network errors
 
@@ -688,11 +691,12 @@ m365 login
 
 ## Security
 
-- ✅ Credentials stored with `600` permissions
-- ✅ OAuth 2.0 Device Code Flow
-- ✅ Automatic token refresh
-- ✅ No sensitive data in logs
-- ✅ HTTPS-only communication
+- Incremental consent — SharePoint permissions requested only when needed
+- Credentials stored with `600` permissions
+- OAuth 2.0 Device Code Flow
+- Automatic token refresh
+- No sensitive data in logs
+- HTTPS-only communication
 
 ## License
 

@@ -6,13 +6,17 @@
     "https://graph.microsoft.com/Mail.Send",
     "https://graph.microsoft.com/Calendars.ReadWrite",
     "https://graph.microsoft.com/Files.ReadWrite.All",
-    "https://graph.microsoft.com/Sites.ReadWrite.All",
     "https://graph.microsoft.com/User.Read",
     "https://graph.microsoft.com/User.ReadBasic.All",
     "https://graph.microsoft.com/Contacts.Read",
     "offline_access",
     "https://graph.microsoft.com/MailboxSettings.Read"
   ],
+  "extraScopes": {
+    "sharepoint": [
+      "https://graph.microsoft.com/Sites.ReadWrite.All"
+    ]
+  },
   "graphApiUrl": "https://graph.microsoft.com/v1.0",
   "authUrl": "https://login.microsoftonline.com",
   "credsPath": "~/.m365-cli/credentials.json",
