@@ -33,6 +33,14 @@ export class TokenExpiredError extends AuthError {
   }
 }
 
+export class InsufficientPrivilegesError extends ApiError {
+  constructor(message, details = null) {
+    super(message || 'Insufficient privileges. Additional permissions are required.', 403, details);
+    this.name = 'InsufficientPrivilegesError';
+    this.code = 'INSUFFICIENT_PRIVILEGES';
+  }
+}
+
 /**
  * Handle and format errors
  */
@@ -101,6 +109,22 @@ export function parseGraphError(response, statusCode) {
     };
   }
   
+  // Detect insufficient privileges (scope issue) — return specialized error
+  if (statusCode === 403 && response.error) {
+    const errorCode = response.error.code;
+    const innerCode = response.error.innerError?.code;
+    const insufficientCodes = [
+      'Authorization_RequestDenied',
+      'AccessDenied',
+      'ErrorAccessDenied',
+      'InsufficientPrivileges',
+    ];
+    
+    if (insufficientCodes.includes(errorCode) || insufficientCodes.includes(innerCode)) {
+      return new InsufficientPrivilegesError(message, details);
+    }
+  }
+  
   return new ApiError(message, statusCode, details);
 }
 
@@ -109,6 +133,7 @@ export default {
   AuthError,
   ApiError,
   TokenExpiredError,
+  InsufficientPrivilegesError,
   handleError,
   parseGraphError,
 };

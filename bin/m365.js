@@ -9,6 +9,7 @@ import mailCommands from '../src/commands/mail.js';
 import calendarCommands from '../src/commands/calendar.js';
 import onedriveCommands from '../src/commands/onedrive.js';
 import sharepointCommands from '../src/commands/sharepoint.js';
+import userCommands from '../src/commands/user.js';
 import { handleError } from '../src/utils/error.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -475,6 +476,24 @@ sharepointCommand
   .option('--json', 'Output as JSON')
   .action(async (query, options) => {
     await sharepointCommands.search(query, {
+      top: parseInt(options.top),
+      json: options.json,
+    });
+  });
+
+// User commands
+const userCommand = program
+  .command('user')
+  .description('Search and resolve users');
+
+userCommand
+  .command('search')
+  .description('Search users by name (organization + contacts)')
+  .argument('<name>', 'Name to search for')
+  .option('-t, --top <number>', 'Maximum results per source', '10')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await userCommands.search(name, {
       top: parseInt(options.top),
       json: options.json,
     });

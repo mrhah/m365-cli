@@ -8,11 +8,14 @@ import { AuthError } from '../utils/error.js';
 
 /**
  * Request device code from Microsoft
+ * @param {string[]} [additionalScopes] - Extra scopes to request beyond default
  */
-export async function requestDeviceCode() {
+export async function requestDeviceCode(additionalScopes = []) {
   const tenantId = config.get('tenantId');
   const clientId = config.get('clientId');
-  const scopes = config.get('scopes').join(' ');
+  const defaultScopes = config.get('scopes');
+  const allScopes = [...new Set([...defaultScopes, ...additionalScopes])];
+  const scopes = allScopes.join(' ');
   const authUrl = config.get('authUrl');
   
   const url = `${authUrl}/${tenantId}/oauth2/v2.0/devicecode`;
@@ -95,11 +98,16 @@ export async function pollForToken(deviceCode) {
 
 /**
  * Full device code flow
+ * @param {string[]} [additionalScopes] - Extra scopes for incremental consent
  */
-export async function deviceCodeFlow() {
+export async function deviceCodeFlow(additionalScopes = []) {
   // Step 1: Request device code
-  console.log('🔐 Starting authentication...\n');
-  const deviceCodeData = await requestDeviceCode();
+  if (additionalScopes.length > 0) {
+    console.log('🔐 Additional permissions required. Starting re-authentication...\n');
+  } else {
+    console.log('🔐 Starting authentication...\n');
+  }
+  const deviceCodeData = await requestDeviceCode(additionalScopes);
   
   // Step 2: Show user instructions
   console.log('━'.repeat(60));
