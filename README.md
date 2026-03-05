@@ -78,8 +78,10 @@ m365 onedrive ls
 ### Authentication
 
 ```bash
-m365 login              # Login with Device Code Flow
-m365 logout             # Clear stored credentials
+m365 login [options]           # Login with Device Code Flow
+  --scopes <scopes>            # Comma-separated scopes to request (overrides defaults)
+  --exclude <scopes>           # Comma-separated scopes to exclude from defaults
+m365 logout                    # Clear stored credentials
 ```
 
 ### Mail Commands
@@ -107,6 +109,8 @@ m365 mail read <id> [options]
 # Send email
 m365 mail send <to> <subject> <body> [options]
   --attach <file1> <file2> ...      # Attach files
+  --cc <emails>                       # CC recipients (comma-separated)
+  --bcc <emails>                      # BCC recipients (comma-separated)
   --json                            # Output as JSON
 
 # Search emails
@@ -268,10 +272,18 @@ m365 onedrive search <query> [options]
 # Create sharing link
 m365 onedrive share <path> [options]
   --type <view|edit>                # Link type (default: view)
+  --scope <organization|anonymous|users>  # Sharing scope (default: anonymous)
   --json                            # Output as JSON
 
 # Create folder
 m365 onedrive mkdir <path> [options]
+  --json                            # Output as JSON
+
+# Invite user to share file/folder
+m365 onedrive invite <path> <email> [options]
+  --role <read|write>               # Permission level (default: read)
+  --message <msg>                   # Invitation message
+  --no-notify                       # Do not send email notification
   --json                            # Output as JSON
 
 # Delete file/folder
@@ -381,6 +393,21 @@ m365 sp search "quarterly report" --top 20
 
 **Note:** SharePoint permissions (`Sites.ReadWrite.All`) are **not** included in the default login scopes because this permission requires a tenant administrator to approve (admin consent) before it can be granted. If it were requested at login, users without admin approval would fail to authenticate. Instead, the CLI requests it on-demand: the first time you run a SharePoint command, it will automatically prompt you to grant the additional permission via Device Code Flow. You must have admin consent for `Sites.ReadWrite.All` in your tenant for this to succeed. Subsequent SharePoint commands will work without re-authentication.
 
+### User Commands
+
+```bash
+# Search for users
+m365 user search <name> [options]
+  --top <n>                         # Maximum results per source (default: 10)
+  --json                            # Output as JSON
+```
+
+**Examples:**
+```bash
+m365 user search "John"
+m365 user search "John" --top 5 --json
+```
+
 ## Configuration
 
 ### Credentials Location
@@ -463,9 +490,11 @@ For production use or organizational requirements, you can register your own Azu
    - `Mail.Send` - Send mail as the user
    - `Calendars.ReadWrite` - Read and write calendar events
    - `MailboxSettings.Read` - Read user mailbox settings (used for timezone detection)
-   - `Files.ReadWrite.All` - Read and write all files the user can access
-   - `Sites.ReadWrite.All` - Read and write SharePoint sites
+   - `Files.ReadWrite` - Read and write files in OneDrive
+   - `Sites.ReadWrite.All` - Read and write SharePoint sites (**requires admin consent**; requested on-demand, not at initial login)
    - `User.Read` - Sign in and read user profile (added by default)
+   - `User.ReadBasic.All` - Read basic profiles of other users
+   - `Contacts.Read` - Read user contacts
 4. Click **Add permissions**
 5. Click **Grant admin consent for [Your Organization]** (admin approval required)
 6. Confirm by clicking **Yes**
@@ -508,8 +537,10 @@ az ad app update --id $APP_ID --is-fallback-public-client true
 #   Mail.Send: e383f46e-2787-4529-855e-0e479a3ffac0
 #   Calendars.ReadWrite: 1ec239c2-d7c9-4623-a91a-a9775856bb36
 #   MailboxSettings.Read: 87f447af-9fa4-4c32-9dfa-4a57a73d18ce
-#   Files.ReadWrite.All: 5c28f0bf-8a70-41f1-8ab2-9032436ddb65
+#   Files.ReadWrite: 5c28f0bf-8a70-41f1-8ab2-9032436ddb65
 #   Sites.ReadWrite.All: 89fe6a52-be36-487e-b7d8-d061c450a026
+#   User.ReadBasic.All: b340eb25-3456-403f-be2f-af7a0d370277
+#   Contacts.Read: ff74d97f-43af-4b68-9f2a-b77ee6968c5d
 
 az ad app permission add --id $APP_ID \
   --api 00000003-0000-0000-c000-000000000000 \
@@ -520,6 +551,8 @@ az ad app permission add --id $APP_ID \
     1ec239c2-d7c9-4623-a91a-a9775856bb36=Scope \
     87f447af-9fa4-4c32-9dfa-4a57a73d18ce=Scope \
     5c28f0bf-8a70-41f1-8ab2-9032436ddb65=Scope \
+    b340eb25-3456-403f-be2f-af7a0d370277=Scope \
+    ff74d97f-43af-4b68-9f2a-b77ee6968c5d=Scope \
     89fe6a52-be36-487e-b7d8-d061c450a026=Scope
 
 # Grant admin consent
@@ -563,10 +596,11 @@ The application requests the following Microsoft Graph permissions at login:
 - `Mail.Send` - Send mail
 - `Calendars.ReadWrite` - Read and write calendar events
 - `MailboxSettings.Read` - Read user mailbox settings (timezone auto-detection)
-- `Files.ReadWrite.All` - Read and write files in OneDrive
+- `Files.ReadWrite` - Read and write files in OneDrive
 - `User.Read` - Sign in and read user profile
 - `User.ReadBasic.All` - Read basic profiles of other users
 - `Contacts.Read` - Read user contacts
+- `offline_access` - Maintain access with refresh tokens (enables persistent login)
 
 The following permissions are requested **on-demand** (incremental consent):
 - `Sites.ReadWrite.All` - Read and write SharePoint sites (requested on first SharePoint command)
@@ -627,16 +661,17 @@ m365-cli/
 │   │   ├── mail.js          # Mail commands
 │   │   ├── calendar.js      # Calendar commands
 │   │   ├── onedrive.js      # OneDrive commands
-│   │   └── sharepoint.js    # SharePoint commands
+│   │   ├── sharepoint.js    # SharePoint commands
+│   │   └── user.js          # User commands
 │   └── utils/               # Utilities
 │       ├── config.js        # Config management
 │       ├── output.js        # Output formatting
-│       └── error.js         # Error handling
+│       ├── error.js         # Error handling
+│       └── trusted-senders.js  # Trusted senders whitelist
 ├── config/
 │   └── default.json         # Default configuration
 ├── package.json             # Project metadata
 ├── README.md                # This file
-└── package.json             # Project metadata
 ```
 
 ## Development
