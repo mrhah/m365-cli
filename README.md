@@ -379,7 +379,7 @@ m365 sp upload "contoso.sharepoint.com:/sites/team" ~/report.pdf "Documents/repo
 m365 sp search "quarterly report" --top 20
 ```
 
-**Note:** SharePoint permissions (`Sites.ReadWrite.All`) are requested **on-demand**. The first time you run a SharePoint command, the CLI will automatically prompt you to grant the additional permission via Device Code Flow. Subsequent SharePoint commands will work without re-authentication.
+**Note:** SharePoint permissions (`Sites.ReadWrite.All`) are **not** included in the default login scopes because this permission requires a tenant administrator to approve (admin consent) before it can be granted. If it were requested at login, users without admin approval would fail to authenticate. Instead, the CLI requests it on-demand: the first time you run a SharePoint command, it will automatically prompt you to grant the additional permission via Device Code Flow. You must have admin consent for `Sites.ReadWrite.All` in your tenant for this to succeed. Subsequent SharePoint commands will work without re-authentication.
 
 ## Configuration
 
@@ -571,7 +571,9 @@ The application requests the following Microsoft Graph permissions at login:
 The following permissions are requested **on-demand** (incremental consent):
 - `Sites.ReadWrite.All` - Read and write SharePoint sites (requested on first SharePoint command)
 
-> **Note:** When you first use a SharePoint command, the CLI will detect the missing permission and automatically initiate a new Device Code Flow to request it. You only need to approve this once — the upgraded token is saved for future use.
+> **Why on-demand?** `Sites.ReadWrite.All` requires tenant administrator approval (admin consent). Including it in the default login scopes would cause authentication to fail for users whose tenant admin has not yet approved this permission. By requesting it on-demand, the CLI works out of the box for non-SharePoint commands, and only prompts for the additional permission when actually needed.
+> 
+> When you first use a SharePoint command, the CLI will detect the missing permission and automatically initiate a new Device Code Flow to request it. You only need to approve this once — the upgraded token is saved for future use.
 
 ## Output Formats
 
@@ -669,9 +671,10 @@ Tokens refresh automatically. If refresh fails, run `m365 login` again.
 
 ### Permission denied (SharePoint)
 
-SharePoint uses **incremental consent** — the `Sites.ReadWrite.All` permission is requested on-demand. If you encounter a permission error:
+SharePoint uses **incremental consent** — the `Sites.ReadWrite.All` permission is not included in the default login because it requires **tenant administrator approval** (admin consent). If you encounter a permission error:
+- Ensure your tenant admin has granted admin consent for `Sites.ReadWrite.All` on the Azure AD app registration.
 - The CLI will automatically prompt you to grant the SharePoint permission via Device Code Flow.
-- If automatic consent fails, try: `m365 logout` then `m365 login`, and run the SharePoint command again.
+- If automatic consent fails, ask your tenant admin to approve `Sites.ReadWrite.All`, then try: `m365 logout` → `m365 login`, and run the SharePoint command again.
 
 ### Network errors
 
@@ -691,7 +694,7 @@ SharePoint uses **incremental consent** — the `Sites.ReadWrite.All` permission
 
 ## Security
 
-- Incremental consent — SharePoint permissions requested only when needed
+- Incremental consent — SharePoint permissions (`Sites.ReadWrite.All`) requested only when needed, since they require tenant admin approval
 - Credentials stored with `600` permissions
 - OAuth 2.0 Device Code Flow
 - Automatic token refresh
