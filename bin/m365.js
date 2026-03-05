@@ -33,9 +33,10 @@ program
   .description('Authenticate with Microsoft 365')
   .option('--scopes <scopes>', 'Comma-separated list of scopes to request (overrides defaults)')
   .option('--exclude <scopes>', 'Comma-separated list of scopes to exclude from defaults')
+  .option('--add-scopes <scopes>', 'Comma-separated list of scopes to add to defaults')
   .action(async (options) => {
     try {
-      await login({ scopes: options.scopes, exclude: options.exclude });
+      await login({ scopes: options.scopes, addScopes: options.addScopes, exclude: options.exclude });
     } catch (error) {
       handleError(error);
     }

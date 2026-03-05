@@ -95,6 +95,21 @@ export function handleError(error, options = {}) {
       console.error('      (Replace {tenantId} with your Azure AD tenant ID)');
       console.error('');
     }
+
+    // Show helpful suggestions for insufficient privileges errors
+    if (error instanceof InsufficientPrivilegesError || error.code === 'INSUFFICIENT_PRIVILEGES') {
+      console.error('');
+      console.error('💡 Suggestions:');
+      console.error('');
+      console.error('   This command requires additional permissions not included in the default scope set.');
+      console.error('');
+      console.error('   Re-login with the required scope:');
+      console.error('      m365 login --add-scopes Sites.ReadWrite.All');
+      console.error('');
+      console.error('   Or login with a complete custom scope list:');
+      console.error('      m365 login --scopes User.Read,Files.ReadWrite,Sites.ReadWrite.All,offline_access');
+      console.error('');
+    }
   }
   
   process.exit(1);

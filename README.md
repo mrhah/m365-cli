@@ -80,6 +80,7 @@ m365 onedrive ls
 ```bash
 m365 login [options]           # Login with Device Code Flow
   --scopes <scopes>            # Comma-separated scopes to request (overrides defaults)
+  --add-scopes <scopes>        # Comma-separated scopes to add to defaults
   --exclude <scopes>           # Comma-separated scopes to exclude from defaults
 m365 logout                    # Clear stored credentials
 ```
@@ -391,7 +392,7 @@ m365 sp upload "contoso.sharepoint.com:/sites/team" ~/report.pdf "Documents/repo
 m365 sp search "quarterly report" --top 20
 ```
 
-**Note:** SharePoint permissions (`Sites.ReadWrite.All`) are **not** included in the default login scopes because this permission requires a tenant administrator to approve (admin consent) before it can be granted. If it were requested at login, users without admin approval would fail to authenticate. Instead, the CLI requests it on-demand: the first time you run a SharePoint command, it will automatically prompt you to grant the additional permission via Device Code Flow. You must have admin consent for `Sites.ReadWrite.All` in your tenant for this to succeed. Subsequent SharePoint commands will work without re-authentication.
+**Note:** SharePoint requires the `Sites.ReadWrite.All` permission, which is **not** included in the default login scopes because it requires tenant administrator approval (admin consent). To use SharePoint commands, re-login with the additional scope: `m365 login --add-scopes Sites.ReadWrite.All`. You must have admin consent for this permission in your tenant.
 
 ### User Commands
 
@@ -491,7 +492,7 @@ For production use or organizational requirements, you can register your own Azu
    - `Calendars.ReadWrite` - Read and write calendar events
    - `MailboxSettings.Read` - Read user mailbox settings (used for timezone detection)
    - `Files.ReadWrite` - Read and write files in OneDrive
-   - `Sites.ReadWrite.All` - Read and write SharePoint sites (**requires admin consent**; requested on-demand, not at initial login)
+   - `Sites.ReadWrite.All` - Read and write SharePoint sites (**requires admin consent**; not included in default login — use `--add-scopes` to add)
    - `User.Read` - Sign in and read user profile (added by default)
    - `User.ReadBasic.All` - Read basic profiles of other users
    - `Contacts.Read` - Read user contacts
@@ -602,13 +603,11 @@ The application requests the following Microsoft Graph permissions at login:
 - `Contacts.Read` - Read user contacts
 - `offline_access` - Maintain access with refresh tokens (enables persistent login)
 
-The following permissions are requested **on-demand** (incremental consent):
-- `Sites.ReadWrite.All` - Read and write SharePoint sites (requested on first SharePoint command)
-
-> **Why on-demand?** `Sites.ReadWrite.All` requires tenant administrator approval (admin consent). Including it in the default login scopes would cause authentication to fail for users whose tenant admin has not yet approved this permission. By requesting it on-demand, the CLI works out of the box for non-SharePoint commands, and only prompts for the additional permission when actually needed.
-> 
-> When you first use a SharePoint command, the CLI will detect the missing permission and automatically initiate a new Device Code Flow to request it. You only need to approve this once — the upgraded token is saved for future use.
-
+> **Note:** `Sites.ReadWrite.All` requires tenant administrator approval (admin consent). It is not included in the default login scopes to avoid authentication failures for users whose tenant admin has not yet approved this permission. To use SharePoint commands, re-login with the scope added:
+>
+> ```bash
+> m365 login --add-scopes Sites.ReadWrite.All
+> ```
 ## Output Formats
 
 ### Default (Text)
@@ -706,10 +705,17 @@ Tokens refresh automatically. If refresh fails, run `m365 login` again.
 
 ### Permission denied (SharePoint)
 
-SharePoint uses **incremental consent** — the `Sites.ReadWrite.All` permission is not included in the default login because it requires **tenant administrator approval** (admin consent). If you encounter a permission error:
-- Ensure your tenant admin has granted admin consent for `Sites.ReadWrite.All` on the Azure AD app registration.
-- The CLI will automatically prompt you to grant the SharePoint permission via Device Code Flow.
-- If automatic consent fails, ask your tenant admin to approve `Sites.ReadWrite.All`, then try: `m365 logout` → `m365 login`, and run the SharePoint command again.
+SharePoint requires the `Sites.ReadWrite.All` permission, which is **not** included in the default login scopes because it requires **tenant administrator approval** (admin consent). If you encounter a permission error:
+
+1. Re-login with the required scope:
+   ```bash
+   m365 login --add-scopes Sites.ReadWrite.All
+   ```
+2. If that fails, ensure your tenant admin has granted admin consent for `Sites.ReadWrite.All` on the Azure AD app registration.
+3. You can also login with a complete custom scope list:
+   ```bash
+   m365 login --scopes User.Read,Files.ReadWrite,Sites.ReadWrite.All,offline_access
+   ```
 
 ### Network errors
 
@@ -729,7 +735,7 @@ SharePoint uses **incremental consent** — the `Sites.ReadWrite.All` permission
 
 ## Security
 
-- Incremental consent — SharePoint permissions (`Sites.ReadWrite.All`) requested only when needed, since they require tenant admin approval
+- Explicit scope management — SharePoint permissions (`Sites.ReadWrite.All`) added via `--add-scopes` when needed, since they require tenant admin approval
 - Credentials stored with `600` permissions
 - OAuth 2.0 Device Code Flow
 - Automatic token refresh
