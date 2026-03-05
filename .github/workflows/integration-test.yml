@@ -25,7 +25,7 @@ jobs:
           node-version: '18'
           cache: 'npm'
       - run: npm ci
-      - run: npx vitest run --exclude='**/*.integration.*'
+      - run: npm run test:unit
 
   integration-tests:
     name: Integration Tests
@@ -52,7 +52,8 @@ jobs:
           M365_INTEGRATION_CLIENT_ID: ${{ secrets.M365_INTEGRATION_CLIENT_ID }}
           M365_INTEGRATION_TENANT_ID: ${{ secrets.M365_INTEGRATION_TENANT_ID }}
           M365_INTEGRATION_CREDS_PATH: /tmp/m365-integration/credentials.json
-        run: npx vitest run tests/user.integration.test.js
+          M365_INTEGRATION_SP_SITE: ${{ secrets.M365_INTEGRATION_SP_SITE }}
+        run: npm run test:integration
 
       - name: Cleanup credentials
         if: always()

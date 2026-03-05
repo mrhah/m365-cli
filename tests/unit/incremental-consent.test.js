@@ -168,7 +168,7 @@ describe('loginWithScopes', () => {
 
     const token = await loginWithScopes(additionalScopes);
 
-    expect(deviceCodeFlow).toHaveBeenCalledWith(additionalScopes);
+    expect(deviceCodeFlow).toHaveBeenCalledWith({ additionalScopes });
     expect(token).toBe('new-token');
   });
 

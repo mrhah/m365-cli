@@ -37,8 +37,8 @@ const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
 // Import after mocks are set up
-import graphClient from '../src/graph/client.js';
-import config from '../src/utils/config.js';
+import graphClient from '../../src/graph/client.js';
+import config from '../../src/utils/config.js';
 
 describe('GraphClient.getTimezone()', () => {
   beforeEach(() => {

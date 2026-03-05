@@ -23,7 +23,7 @@ vi.mock('../src/utils/error.js', () => ({
   handleError: (...args) => mockHandleError(...args),
 }));
 
-import { searchUser } from '../src/commands/user.js';
+import { searchUser } from '../../src/commands/user.js';
 
 describe('User search command', () => {
   beforeEach(() => {

@@ -5,7 +5,7 @@
     "https://graph.microsoft.com/Mail.ReadWrite",
     "https://graph.microsoft.com/Mail.Send",
     "https://graph.microsoft.com/Calendars.ReadWrite",
-    "https://graph.microsoft.com/Files.ReadWrite.All",
+    "https://graph.microsoft.com/Files.ReadWrite",
     "https://graph.microsoft.com/User.Read",
     "https://graph.microsoft.com/User.ReadBasic.All",
     "https://graph.microsoft.com/Contacts.Read",

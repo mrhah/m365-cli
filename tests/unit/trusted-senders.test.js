@@ -10,7 +10,7 @@ vi.mock('fs', async () => {
   };
 });
 
-import { isTrustedSender } from '../src/utils/trusted-senders.js';
+import { isTrustedSender } from '../../src/utils/trusted-senders.js';
 import { existsSync, readFileSync } from 'fs';
 
 describe('isTrustedSender', () => {

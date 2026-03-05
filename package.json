@@ -16,6 +16,8 @@
   "scripts": {
     "test": "vitest",
     "test:run": "vitest run",
+    "test:unit": "vitest run tests/unit/",
+    "test:integration": "vitest run --testTimeout=30000 --hookTimeout=30000 tests/integration/",
     "link": "npm link",
     "unlink": "npm unlink -g m365-cli"
   },

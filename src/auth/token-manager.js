@@ -184,10 +184,52 @@ export async function getAccessToken() {
 
 /**
  * Perform login (device code flow)
+ * @param {Object} [options]
+ * @param {string} [options.scopes] - Comma-separated scopes to request (overrides defaults)
+ * @param {string} [options.exclude] - Comma-separated scopes to exclude from defaults
  */
-export async function login() {
+export async function login({ scopes, exclude } = {}) {
+  // Resolve final scope list
+  let overrideScopes;
+  let effectiveScopes;
+
+  if (scopes && exclude) {
+    throw new AuthError('Cannot use --scopes and --exclude together. Use one or the other.');
+  }
+
+  const GRAPH_PREFIX = 'https://graph.microsoft.com/';
+
+  if (scopes) {
+    // User specified exact scopes — normalize to full URIs
+    overrideScopes = scopes.split(',').map(s => {
+      s = s.trim();
+      if (s === 'offline_access' || s.startsWith('https://')) return s;
+      return `${GRAPH_PREFIX}${s}`;
+    });
+    effectiveScopes = overrideScopes;
+  } else if (exclude) {
+    // User wants to exclude specific scopes from defaults
+    const excludeList = exclude.split(',').map(s => {
+      s = s.trim();
+      if (s === 'offline_access' || s.startsWith('https://')) return s;
+      return `${GRAPH_PREFIX}${s}`;
+    });
+    const defaultScopes = config.get('scopes');
+    overrideScopes = defaultScopes.filter(s => !excludeList.includes(s));
+    effectiveScopes = overrideScopes;
+
+    const removed = defaultScopes.filter(s => excludeList.includes(s));
+    if (removed.length > 0) {
+      console.log(`ℹ️  Excluding scopes: ${removed.map(s => s.replace(GRAPH_PREFIX, '')).join(', ')}\n`);
+    }
+  } else {
+    // Default — use all scopes from config
+    effectiveScopes = config.get('scopes');
+  }
+
   try {
-    const result = await deviceCodeFlow();
+    const flowOptions = overrideScopes ? { overrideScopes } : {};
+    const result = await deviceCodeFlow(flowOptions);
     
     const creds = {
       tenantId: config.get('tenantId'),
@@ -195,7 +237,7 @@ export async function login() {
       accessToken: result.accessToken,
       refreshToken: result.refreshToken,
       expiresAt: Math.floor(Date.now() / 1000) + result.expiresIn,
-      grantedScopes: config.get('scopes'),
+      grantedScopes: effectiveScopes,
     };
     
     saveCreds(creds);
@@ -217,7 +259,7 @@ export async function login() {
  */
 export async function loginWithScopes(additionalScopes = []) {
   try {
-    const result = await deviceCodeFlow(additionalScopes);
+    const result = await deviceCodeFlow({ additionalScopes });
     
     // Merge previously granted scopes with new ones
     const existingCreds = loadCreds();

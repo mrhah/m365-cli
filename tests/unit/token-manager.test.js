@@ -47,7 +47,7 @@ vi.mock('../src/auth/device-flow.js', () => ({
 }));
 
 import { readFileSync, writeFileSync, mkdirSync, chmodSync, unlinkSync } from 'fs';
-import { isTokenExpired, loadCreds, saveCreds, logout } from '../src/auth/token-manager.js';
+import { isTokenExpired, loadCreds, saveCreds, logout } from '../../src/auth/token-manager.js';
 
 describe('Token Manager', () => {
   beforeEach(() => {

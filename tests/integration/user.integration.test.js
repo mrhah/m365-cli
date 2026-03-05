@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { existsSync } from 'fs';
 import { resolve } from 'path';
-import { loadCreds, isTokenExpired, getAccessToken } from '../src/auth/token-manager.js';
-import graphClient from '../src/graph/client.js';
-import { searchUser } from '../src/commands/user.js';
+import { loadCreds, isTokenExpired, getAccessToken } from '../../src/auth/token-manager.js';
+import graphClient from '../../src/graph/client.js';
+import { searchUser } from '../../src/commands/user.js';
 
 /**
  * Integration tests for user search feature.
@@ -101,9 +101,9 @@ afterAll(() => {
   }
 });
 
-describe('[Integration] User search — Graph API', () => {
+describe('[Integration] User search — Graph API', { timeout: 30000 }, () => {
   describe('Organization users (/users endpoint)', () => {
-    it('should search organization users by name', async (ctx) => {
+    it('should search organization users by name', { retry: 2 }, async (ctx) => {
       if (!hasAuth) return ctx.skip();
 
       const results = await graphClient.user.searchUsers('a', { top: 5 });

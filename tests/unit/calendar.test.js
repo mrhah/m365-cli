@@ -38,7 +38,7 @@ vi.mock('../src/utils/error.js', () => ({
   handleError: (...args) => mockHandleError(...args),
 }));
 
-import { createEvent, updateEvent } from '../src/commands/calendar.js';
+import { createEvent, updateEvent } from '../../src/commands/calendar.js';
 
 describe('Calendar commands - dynamic timezone', () => {
   beforeEach(() => {
