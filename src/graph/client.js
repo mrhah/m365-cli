@@ -215,10 +215,7 @@ class GraphClient {
       // Map friendly folder names to Graph API names
       const mappedFolder = this.mail._mapFolderName(folder);
       
-      let endpoint = '/me/messages';
-      if (mappedFolder && mappedFolder !== 'inbox') {
-        endpoint = `/me/mailFolders/${mappedFolder}/messages`;
-      }
+      const endpoint = `/me/mailFolders/${mappedFolder}/messages`;
       
       const response = await this.get(endpoint, { queryParams });
       return response.value || [];
