@@ -3,10 +3,10 @@ name: Integration Tests
 on:
   # Run on pushes to main and feature branches
   push:
-    branches: [main, 'feature/**']
+    branches: [main, master, 'feature/**']
   # Run on PRs targeting main
   pull_request:
-    branches: [main]
+    branches: [main, master]
   # Allow manual trigger
   workflow_dispatch:
   # Scheduled run — keeps token fresh and catches regressions
