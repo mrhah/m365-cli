@@ -1,5 +1,5 @@
 import config from '../utils/config.js';
-import { AuthError } from '../utils/error.js';
+import { AuthError, ConsentRequiredError } from '../utils/error.js';
 
 /**
  * Device Code Flow authentication
@@ -8,15 +8,25 @@ import { AuthError } from '../utils/error.js';
 
 /**
  * Request device code from Microsoft
- * @param {string[]} [additionalScopes] - Extra scopes to request beyond default
+ * @param {Object} [options]
+ * @param {string[]} [options.additionalScopes] - Extra scopes to request beyond default
+ * @param {string[]} [options.overrideScopes] - Complete scope list (replaces defaults entirely)
  */
-export async function requestDeviceCode(additionalScopes = []) {
+export async function requestDeviceCode({ additionalScopes = [], overrideScopes } = {}) {
   const tenantId = config.get('tenantId');
   const clientId = config.get('clientId');
-  const defaultScopes = config.get('scopes');
-  const allScopes = [...new Set([...defaultScopes, ...additionalScopes])];
-  const scopes = allScopes.join(' ');
   const authUrl = config.get('authUrl');
+
+  let allScopes;
+  if (overrideScopes) {
+    // Complete replacement — user specified exact scopes via --scopes or --exclude
+    allScopes = overrideScopes;
+  } else {
+    // Default behavior — merge default scopes with any additional ones
+    const defaultScopes = config.get('scopes');
+    allScopes = [...new Set([...defaultScopes, ...additionalScopes])];
+  }
+  const scopes = allScopes.join(' ');
   
   const url = `${authUrl}/${tenantId}/oauth2/v2.0/devicecode`;
   
@@ -81,6 +91,20 @@ export async function pollForToken(deviceCode) {
       return { slowDown: true };
     }
     
+    // Detect admin consent required (error 90094)
+    const errorDesc = data.error_description || '';
+    if (
+      errorDesc.includes('90094') ||
+      errorDesc.includes('admin consent') ||
+      errorDesc.toLowerCase().includes('admin approval') ||
+      data.error === 'consent_required'
+    ) {
+      throw new ConsentRequiredError(
+        data.error_description || 'Admin consent is required for the requested permissions.',
+        { error: data.error, suberror: data.suberror }
+      );
+    }
+
     throw new AuthError(
       data.error_description || data.error,
       { error: data.error }
@@ -98,16 +122,20 @@ export async function pollForToken(deviceCode) {
 
 /**
  * Full device code flow
- * @param {string[]} [additionalScopes] - Extra scopes for incremental consent
+ * @param {Object} [options]
+ * @param {string[]} [options.additionalScopes] - Extra scopes for incremental consent
+ * @param {string[]} [options.overrideScopes] - Complete scope list (replaces defaults entirely)
  */
-export async function deviceCodeFlow(additionalScopes = []) {
+export async function deviceCodeFlow({ additionalScopes = [], overrideScopes } = {}) {
   // Step 1: Request device code
-  if (additionalScopes.length > 0) {
+  if (overrideScopes) {
+    console.log('🔐 Starting authentication with custom scopes...\n');
+  } else if (additionalScopes.length > 0) {
     console.log('🔐 Additional permissions required. Starting re-authentication...\n');
   } else {
     console.log('🔐 Starting authentication...\n');
   }
-  const deviceCodeData = await requestDeviceCode(additionalScopes);
+  const deviceCodeData = await requestDeviceCode({ additionalScopes, overrideScopes });
   
   // Step 2: Show user instructions
   console.log('━'.repeat(60));

@@ -17,7 +17,7 @@ vi.stubGlobal('process', {
   exit: mockExit,
 });
 
-import { M365Error, AuthError, ApiError, TokenExpiredError, handleError, parseGraphError } from '../src/utils/error.js';
+import { M365Error, AuthError, ApiError, TokenExpiredError, handleError, parseGraphError } from '../../src/utils/error.js';
 
 describe('Error Classes', () => {
   describe('M365Error', () => {
@@ -95,7 +95,7 @@ describe('handleError', () => {
     
     handleError(error, { json: false });
     
-    expect(mockConsoleError).toHaveBeenCalledWith('❌ Error: Test error');
+    expect(mockConsoleError).toHaveBeenCalledWith('\n❌ Error: Test error');
     expect(mockConsoleError).toHaveBeenCalledWith(
       expect.stringContaining('Details:')
     );
@@ -107,7 +107,7 @@ describe('handleError', () => {
     
     handleError(error, { json: false });
     
-    expect(mockConsoleError).toHaveBeenCalledWith('❌ Error: Simple error');
+    expect(mockConsoleError).toHaveBeenCalledWith('\n❌ Error: Simple error');
   });
 });
 

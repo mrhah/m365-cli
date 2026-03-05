@@ -3,7 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 const mockSearchUsers = vi.fn();
 const mockSearchContacts = vi.fn();
 
-vi.mock('../src/graph/client.js', () => ({
+vi.mock('../../src/graph/client.js', () => ({
   default: {
     user: {
       searchUsers: (...args) => mockSearchUsers(...args),
@@ -14,16 +14,16 @@ vi.mock('../src/graph/client.js', () => ({
 
 const mockOutputUserSearchResults = vi.fn();
 
-vi.mock('../src/utils/output.js', () => ({
+vi.mock('../../src/utils/output.js', () => ({
   outputUserSearchResults: (...args) => mockOutputUserSearchResults(...args),
 }));
 
 const mockHandleError = vi.fn();
-vi.mock('../src/utils/error.js', () => ({
+vi.mock('../../src/utils/error.js', () => ({
   handleError: (...args) => mockHandleError(...args),
 }));
 
-import { searchUser } from '../src/commands/user.js';
+import { searchUser } from '../../src/commands/user.js';
 
 describe('User search command', () => {
   beforeEach(() => {

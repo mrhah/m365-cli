@@ -16,6 +16,8 @@
   "scripts": {
     "test": "vitest",
     "test:run": "vitest run",
+    "test:unit": "vitest run tests/unit/",
+    "test:integration": "vitest run --testTimeout=30000 --hookTimeout=30000 tests/integration/",
     "link": "npm link",
     "unlink": "npm unlink -g m365-cli"
   },
@@ -31,12 +33,12 @@
   "author": "",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/mrhah/m365-cli.git"
   },
   "bugs": {
-    "url": ""
+    "url": "https://github.com/mrhah/m365-cli/issues"
   },
-  "homepage": "",
+  "homepage": "https://github.com/mrhah/m365-cli#readme",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"

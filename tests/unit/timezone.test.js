@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 // Mock config — factory must not reference top-level variables
-vi.mock('../src/utils/config.js', () => ({
+vi.mock('../../src/utils/config.js', () => ({
   default: {
     get: vi.fn((key) => {
       if (key === 'graphApiUrl') return 'https://graph.microsoft.com/v1.0';
@@ -11,12 +11,12 @@ vi.mock('../src/utils/config.js', () => ({
 }));
 
 // Mock token-manager
-vi.mock('../src/auth/token-manager.js', () => ({
+vi.mock('../../src/auth/token-manager.js', () => ({
   getAccessToken: vi.fn(() => 'mock-token'),
 }));
 
 // Mock error module
-vi.mock('../src/utils/error.js', () => ({
+vi.mock('../../src/utils/error.js', () => ({
   ApiError: class ApiError extends Error {
     constructor(message, statusCode) {
       super(message);
@@ -37,8 +37,8 @@ const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
 
 // Import after mocks are set up
-import graphClient from '../src/graph/client.js';
-import config from '../src/utils/config.js';
+import graphClient from '../../src/graph/client.js';
+import config from '../../src/utils/config.js';
 
 describe('GraphClient.getTimezone()', () => {
   beforeEach(() => {

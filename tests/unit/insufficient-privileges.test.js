@@ -3,7 +3,7 @@ import {
   parseGraphError,
   InsufficientPrivilegesError,
   ApiError,
-} from '../src/utils/error.js';
+} from '../../src/utils/error.js';
 
 // ============================================================
 // parseGraphError — InsufficientPrivilegesError detection

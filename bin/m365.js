@@ -31,9 +31,11 @@ program
 program
   .command('login')
   .description('Authenticate with Microsoft 365')
-  .action(async () => {
+  .option('--scopes <scopes>', 'Comma-separated list of scopes to request (overrides defaults)')
+  .option('--exclude <scopes>', 'Comma-separated list of scopes to exclude from defaults')
+  .action(async (options) => {
     try {
-      await login();
+      await login({ scopes: options.scopes, exclude: options.exclude });
     } catch (error) {
       handleError(error);
     }

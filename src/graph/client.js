@@ -196,12 +196,6 @@ class GraphClient {
    * Mail endpoints
    */
   mail = {
-  }
-  
-  /**
-   * Mail endpoints
-   */
-  mail = {
     /**
      * Map friendly folder names to Graph API well-known folder names
      */

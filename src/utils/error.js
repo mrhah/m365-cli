@@ -41,6 +41,14 @@ export class InsufficientPrivilegesError extends ApiError {
   }
 }
 
+export class ConsentRequiredError extends AuthError {
+  constructor(message, details = null) {
+    super(message || 'Admin consent is required for the permissions requested by this application.', details);
+    this.name = 'ConsentRequiredError';
+    this.code = 'CONSENT_REQUIRED';
+  }
+}
+
 /**
  * Handle and format errors
  */
@@ -64,10 +72,28 @@ export function handleError(error, options = {}) {
     
     console.error(JSON.stringify(errorObj, null, 2));
   } else {
-    console.error(`❌ Error: ${error.message}`);
+    console.error(`\n❌ Error: ${error.message}`);
     
     if (error.details) {
       console.error(`   Details: ${JSON.stringify(error.details, null, 2)}`);
+    }
+    
+    // Show helpful suggestions for consent errors
+    if (error instanceof ConsentRequiredError || error.code === 'CONSENT_REQUIRED') {
+      console.error('');
+      console.error('💡 Suggestions:');
+      console.error('');
+      console.error('   1. Login with fewer scopes (exclude blocked ones):');
+      console.error('      m365 login --exclude Mail.ReadWrite,Calendars.ReadWrite,MailboxSettings.Read');
+      console.error('');
+      console.error('   2. Login with only non-blocked scopes:');
+      console.error('      m365 login --scopes User.Read,User.ReadBasic.All,Contacts.Read,Mail.Send,Files.ReadWrite,offline_access');
+      console.error('');
+      console.error('   3. Ask your tenant admin to grant consent:');
+      const clientId = '091b3d7b-e217-4410-868c-01c3ee6189b6';
+      console.error(`      https://login.microsoftonline.com/{tenantId}/adminconsent?client_id=${clientId}`);
+      console.error('      (Replace {tenantId} with your Azure AD tenant ID)');
+      console.error('');
     }
   }
   
@@ -134,6 +160,7 @@ export default {
   ApiError,
   TokenExpiredError,
   InsufficientPrivilegesError,
+  ConsentRequiredError,
   handleError,
   parseGraphError,
 };

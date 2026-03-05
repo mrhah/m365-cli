@@ -21,7 +21,7 @@ describe('getExtraScopes', () => {
   let getExtraScopes;
 
   beforeEach(async () => {
-    const mod = await import('../src/utils/config.js');
+    const mod = await import('../../src/utils/config.js');
     getExtraScopes = mod.getExtraScopes;
   });
 
@@ -55,7 +55,7 @@ describe('loginWithScopes', () => {
   });
 
   // Mock config
-  vi.mock('../src/utils/config.js', () => ({
+  vi.mock('../../src/utils/config.js', () => ({
     default: {
       get: vi.fn((key) => {
         const config = {
@@ -76,7 +76,7 @@ describe('loginWithScopes', () => {
   }));
 
   // Mock error
-  vi.mock('../src/utils/error.js', () => {
+  vi.mock('../../src/utils/error.js', () => {
     class ApiError extends Error {
       constructor(message, statusCode, details) {
         super(message);
@@ -127,7 +127,7 @@ describe('loginWithScopes', () => {
   });
 
   // Mock device-flow
-  vi.mock('../src/auth/device-flow.js', () => ({
+  vi.mock('../../src/auth/device-flow.js', () => ({
     deviceCodeFlow: vi.fn(),
   }));
 
@@ -137,11 +137,11 @@ describe('loginWithScopes', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
 
-    const tokenMod = await import('../src/auth/token-manager.js');
+    const tokenMod = await import('../../src/auth/token-manager.js');
     loginWithScopes = tokenMod.loginWithScopes;
     loadCreds = tokenMod.loadCreds;
 
-    const flowMod = await import('../src/auth/device-flow.js');
+    const flowMod = await import('../../src/auth/device-flow.js');
     deviceCodeFlow = flowMod.deviceCodeFlow;
 
     const fsMod = await import('fs');
@@ -168,7 +168,7 @@ describe('loginWithScopes', () => {
 
     const token = await loginWithScopes(additionalScopes);
 
-    expect(deviceCodeFlow).toHaveBeenCalledWith(additionalScopes);
+    expect(deviceCodeFlow).toHaveBeenCalledWith({ additionalScopes });
     expect(token).toBe('new-token');
   });
 
@@ -236,7 +236,7 @@ describe('GraphClient._detectFeature', () => {
   let graphClient;
 
   beforeEach(async () => {
-    const mod = await import('../src/graph/client.js');
+    const mod = await import('../../src/graph/client.js');
     graphClient = mod.default;
   });
 
@@ -272,20 +272,20 @@ describe('GraphClient.request — incremental consent retry', () => {
   beforeEach(async () => {
     vi.clearAllMocks();
 
-    const errorMod = await import('../src/utils/error.js');
+    const errorMod = await import('../../src/utils/error.js');
     InsufficientPrivilegesError = errorMod.InsufficientPrivilegesError;
 
-    const tokenMod = await import('../src/auth/token-manager.js');
+    const tokenMod = await import('../../src/auth/token-manager.js');
     loginWithScopes = tokenMod.loginWithScopes;
 
-    const clientMod = await import('../src/graph/client.js');
+    const clientMod = await import('../../src/graph/client.js');
     graphClient = clientMod.default;
   });
 
   it('should retry request after successful incremental consent on SharePoint 403', async () => {
-    const { getAccessToken } = await import('../src/auth/token-manager.js');
-    const { parseGraphError } = await import('../src/utils/error.js');
-    const { deviceCodeFlow } = await import('../src/auth/device-flow.js');
+    const { getAccessToken } = await import('../../src/auth/token-manager.js');
+    const { parseGraphError } = await import('../../src/utils/error.js');
+    const { deviceCodeFlow } = await import('../../src/auth/device-flow.js');
     const { readFileSync } = await import('fs');
 
     // First call: getAccessToken returns old token
@@ -336,8 +336,8 @@ describe('GraphClient.request — incremental consent retry', () => {
   });
 
   it('should not retry more than once (prevent infinite loops)', async () => {
-    const { parseGraphError } = await import('../src/utils/error.js');
-    const { deviceCodeFlow } = await import('../src/auth/device-flow.js');
+    const { parseGraphError } = await import('../../src/utils/error.js');
+    const { deviceCodeFlow } = await import('../../src/auth/device-flow.js');
     const { readFileSync } = await import('fs');
 
     readFileSync.mockReturnValue(JSON.stringify({
@@ -377,7 +377,7 @@ describe('GraphClient.request — incremental consent retry', () => {
   });
 
   it('should not trigger consent for non-SharePoint 403 errors', async () => {
-    const { parseGraphError } = await import('../src/utils/error.js');
+    const { parseGraphError } = await import('../../src/utils/error.js');
     const { readFileSync } = await import('fs');
 
     readFileSync.mockReturnValue(JSON.stringify({
