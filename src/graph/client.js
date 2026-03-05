@@ -1,6 +1,6 @@
-import { getAccessToken, loginWithScopes } from '../auth/token-manager.js';
-import config, { getExtraScopes } from '../utils/config.js';
-import { ApiError, InsufficientPrivilegesError, parseGraphError } from '../utils/error.js';
+import { getAccessToken } from '../auth/token-manager.js';
+import config from '../utils/config.js';
+import { ApiError, parseGraphError } from '../utils/error.js';
 
 /**
  * Microsoft Graph API Client
@@ -13,19 +13,6 @@ class GraphClient {
     this._cachedTimezone = null;
   }
   
-  /**
-   * Detect which feature an endpoint belongs to, for incremental consent.
-   * Maps API endpoint patterns to feature names defined in config.extraScopes.
-   * @param {string} endpoint - Graph API endpoint path
-   * @returns {string|null} Feature name (e.g., 'sharepoint') or null
-   */
-  _detectFeature(endpoint) {
-    // SharePoint endpoints: /sites/..., /search/query
-    if (endpoint.startsWith('/sites') || endpoint === '/search/query') {
-      return 'sharepoint';
-    }
-    return null;
-  }
   
   /**
    * Get user timezone with fallback chain:
@@ -86,7 +73,6 @@ class GraphClient {
       body = null,
       headers = {},
       queryParams = {},
-      _retried = false,
     } = options;
     
     // Get access token (auto-refresh if needed)
@@ -135,18 +121,6 @@ class GraphClient {
       
       return data;
     } catch (error) {
-      // Incremental consent: on InsufficientPrivilegesError, try to acquire additional scopes
-      if (error instanceof InsufficientPrivilegesError && !_retried) {
-        const feature = this._detectFeature(endpoint);
-        if (feature) {
-          const extraScopes = getExtraScopes(feature);
-          if (extraScopes.length > 0) {
-            await loginWithScopes(extraScopes);
-            // Retry the original request once with _retried flag to prevent loops
-            return this.request(endpoint, { ...options, _retried: true });
-          }
-        }
-      }
       
       if (error instanceof ApiError) {
         throw error;

@@ -17,7 +17,7 @@ vi.stubGlobal('process', {
   exit: mockExit,
 });
 
-import { M365Error, AuthError, ApiError, TokenExpiredError, handleError, parseGraphError } from '../../src/utils/error.js';
+import { M365Error, AuthError, ApiError, TokenExpiredError, InsufficientPrivilegesError, handleError, parseGraphError } from '../../src/utils/error.js';
 
 describe('Error Classes', () => {
   describe('M365Error', () => {
@@ -108,6 +108,28 @@ describe('handleError', () => {
     handleError(error, { json: false });
     
     expect(mockConsoleError).toHaveBeenCalledWith('\n❌ Error: Simple error');
+  });
+
+  it('should show --add-scopes suggestion for InsufficientPrivilegesError', () => {
+    const error = new InsufficientPrivilegesError('Insufficient privileges');
+    
+    handleError(error);
+    
+    const allOutput = mockConsoleError.mock.calls.map(c => c[0]).join('\n');
+    expect(allOutput).toContain('💡 Suggestions');
+    expect(allOutput).toContain('--add-scopes');
+    expect(allOutput).toContain('Sites.ReadWrite.All');
+    expect(mockExit).toHaveBeenCalledWith(1);
+  });
+
+  it('should NOT show --add-scopes suggestion for regular ApiError', () => {
+    const error = new ApiError('Some error', 500);
+    
+    handleError(error);
+    
+    const allOutput = mockConsoleError.mock.calls.map(c => c[0]).join('\n');
+    expect(allOutput).not.toContain('--add-scopes');
+    expect(mockExit).toHaveBeenCalledWith(1);
   });
 });
 

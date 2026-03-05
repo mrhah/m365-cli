@@ -45,17 +45,6 @@ export function getCredsPath() {
   return expandHome(path);
 }
 
-/**
- * Get extra scopes for a specific feature (e.g., 'sharepoint')
- * Returns an array of scope strings, or empty array if not defined
- */
-export function getExtraScopes(feature) {
-  const extraScopes = defaultConfig.extraScopes;
-  if (!extraScopes || !extraScopes[feature]) {
-    return [];
-  }
-  return extraScopes[feature];
-}
 
 /**
  * Get all config as object
@@ -71,5 +60,4 @@ export default {
   get: getConfig,
   getCredsPath,
   getAll: getAllConfig,
-  getExtraScopes,
 };

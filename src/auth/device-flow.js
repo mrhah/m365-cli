@@ -9,22 +9,19 @@ import { AuthError, ConsentRequiredError } from '../utils/error.js';
 /**
  * Request device code from Microsoft
  * @param {Object} [options]
- * @param {string[]} [options.additionalScopes] - Extra scopes to request beyond default
  * @param {string[]} [options.overrideScopes] - Complete scope list (replaces defaults entirely)
  */
-export async function requestDeviceCode({ additionalScopes = [], overrideScopes } = {}) {
+export async function requestDeviceCode({ overrideScopes } = {}) {
   const tenantId = config.get('tenantId');
   const clientId = config.get('clientId');
   const authUrl = config.get('authUrl');
 
   let allScopes;
   if (overrideScopes) {
-    // Complete replacement — user specified exact scopes via --scopes or --exclude
+    // Complete replacement — user specified exact scopes via --scopes, --add-scopes, or --exclude
     allScopes = overrideScopes;
   } else {
-    // Default behavior — merge default scopes with any additional ones
-    const defaultScopes = config.get('scopes');
-    allScopes = [...new Set([...defaultScopes, ...additionalScopes])];
+    allScopes = config.get('scopes');
   }
   const scopes = allScopes.join(' ');
   
@@ -123,19 +120,16 @@ export async function pollForToken(deviceCode) {
 /**
  * Full device code flow
  * @param {Object} [options]
- * @param {string[]} [options.additionalScopes] - Extra scopes for incremental consent
  * @param {string[]} [options.overrideScopes] - Complete scope list (replaces defaults entirely)
  */
-export async function deviceCodeFlow({ additionalScopes = [], overrideScopes } = {}) {
+export async function deviceCodeFlow({ overrideScopes } = {}) {
   // Step 1: Request device code
   if (overrideScopes) {
     console.log('🔐 Starting authentication with custom scopes...\n');
-  } else if (additionalScopes.length > 0) {
-    console.log('🔐 Additional permissions required. Starting re-authentication...\n');
   } else {
     console.log('🔐 Starting authentication...\n');
   }
-  const deviceCodeData = await requestDeviceCode({ additionalScopes, overrideScopes });
+  const deviceCodeData = await requestDeviceCode({ overrideScopes });
   
   // Step 2: Show user instructions
   console.log('━'.repeat(60));

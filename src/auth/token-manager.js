@@ -186,15 +186,17 @@ export async function getAccessToken() {
  * Perform login (device code flow)
  * @param {Object} [options]
  * @param {string} [options.scopes] - Comma-separated scopes to request (overrides defaults)
+ * @param {string} [options.addScopes] - Comma-separated scopes to add to defaults
  * @param {string} [options.exclude] - Comma-separated scopes to exclude from defaults
  */
-export async function login({ scopes, exclude } = {}) {
+export async function login({ scopes, addScopes, exclude } = {}) {
   // Resolve final scope list
   let overrideScopes;
   let effectiveScopes;
 
-  if (scopes && exclude) {
-    throw new AuthError('Cannot use --scopes and --exclude together. Use one or the other.');
+  const optionCount = [scopes, addScopes, exclude].filter(Boolean).length;
+  if (optionCount > 1) {
+    throw new AuthError('Cannot combine --scopes, --add-scopes, and --exclude. Use only one.');
   }
 
   const GRAPH_PREFIX = 'https://graph.microsoft.com/';
@@ -207,6 +209,21 @@ export async function login({ scopes, exclude } = {}) {
       return `${GRAPH_PREFIX}${s}`;
     });
     effectiveScopes = overrideScopes;
+  } else if (addScopes) {
+    // User wants to add extra scopes on top of defaults
+    const additionalList = addScopes.split(',').map(s => {
+      s = s.trim();
+      if (s === 'offline_access' || s.startsWith('https://')) return s;
+      return `${GRAPH_PREFIX}${s}`;
+    });
+    const defaultScopes = config.get('scopes');
+    overrideScopes = [...new Set([...defaultScopes, ...additionalList])];
+    effectiveScopes = overrideScopes;
+
+    const added = additionalList.filter(s => !defaultScopes.includes(s));
+    if (added.length > 0) {
+      console.log(`ℹ️  Adding scopes: ${added.map(s => s.replace(GRAPH_PREFIX, '')).join(', ')}\n`);
+    }
   } else if (exclude) {
     // User wants to exclude specific scopes from defaults
     const excludeList = exclude.split(',').map(s => {
@@ -251,39 +268,6 @@ export async function login({ scopes, exclude } = {}) {
   }
 }
 
-/**
- * Perform login with additional scopes (incremental consent)
- * Re-authenticates with device code flow including extra scopes
- * @param {string[]} additionalScopes - Extra scopes to request
- * @returns {Promise<string>} New access token
- */
-export async function loginWithScopes(additionalScopes = []) {
-  try {
-    const result = await deviceCodeFlow({ additionalScopes });
-    
-    // Merge previously granted scopes with new ones
-    const existingCreds = loadCreds();
-    const previousScopes = existingCreds?.grantedScopes || config.get('scopes');
-    const allScopes = [...new Set([...previousScopes, ...additionalScopes])];
-    
-    const creds = {
-      tenantId: config.get('tenantId'),
-      clientId: config.get('clientId'),
-      accessToken: result.accessToken,
-      refreshToken: result.refreshToken,
-      expiresAt: Math.floor(Date.now() / 1000) + result.expiresIn,
-      grantedScopes: allScopes,
-    };
-    
-    saveCreds(creds);
-    
-    console.log('\n✅ Additional permissions granted!');
-    
-    return result.accessToken;
-  } catch (error) {
-    throw error;
-  }
-}
 
 /**
  * Logout (clear credentials)
@@ -311,6 +295,5 @@ export default {
   refreshToken,
   getAccessToken,
   login,
-  loginWithScopes,
   logout,
 };
