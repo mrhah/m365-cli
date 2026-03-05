@@ -828,6 +828,36 @@ export function outputSharePointSearchResults(results, options = {}) {
   });
 }
 
+export function outputUserSearchResults(results, options = {}) {
+  const { json = false, name = '' } = options;
+  
+  if (json) {
+    console.log(JSON.stringify(results, null, 2));
+    return;
+  }
+  
+  if (!results || results.length === 0) {
+    console.log(`👤 No users found for "${name}".`);
+    return;
+  }
+  
+  console.log(`👤 User Search Results for "${name}" (${results.length} results)`);
+  console.log('━'.repeat(60));
+  
+  results.forEach((user, index) => {
+    const sourceLabel = user.source === 'organization' ? 'Organization' : 'Contacts';
+    const detail = user.department || user.jobTitle || '';
+    
+    console.log(`[${index + 1}] 👤 ${user.displayName}`);
+    console.log(`    Email: ${user.email || 'N/A'}`);
+    if (detail) {
+      console.log(`    ${user.department ? 'Department' : 'Job Title'}: ${detail}`);
+    }
+    console.log(`    Source: ${sourceLabel}`);
+    console.log('');
+  });
+}
+
 export default {
   outputMailList,
   outputMailDetail,
@@ -848,6 +878,7 @@ export default {
   outputSharePointLists,
   outputSharePointItems,
   outputSharePointSearchResults,
+  outputUserSearchResults,
   formatDate,
   formatFileSize,
   truncate,

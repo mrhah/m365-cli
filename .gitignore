@@ -33,3 +33,7 @@ Thumbs.db
 creds/
 .env
 .env.local
+.env.integration
+
+# Integration test credentials
+integration-credentials.json

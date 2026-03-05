@@ -8,6 +8,8 @@
     "https://graph.microsoft.com/Files.ReadWrite.All",
     "https://graph.microsoft.com/Sites.ReadWrite.All",
     "https://graph.microsoft.com/User.Read",
+    "https://graph.microsoft.com/User.ReadBasic.All",
+    "https://graph.microsoft.com/Contacts.Read",
     "offline_access",
     "https://graph.microsoft.com/MailboxSettings.Read"
   ],

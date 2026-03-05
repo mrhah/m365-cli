@@ -1,0 +1,59 @@
+name: Integration Tests
+
+on:
+  # Run on pushes to main and feature branches
+  push:
+    branches: [main, 'feature/**']
+  # Run on PRs targeting main
+  pull_request:
+    branches: [main]
+  # Allow manual trigger
+  workflow_dispatch:
+  # Scheduled run — keeps token fresh and catches regressions
+  schedule:
+    # Every Monday at 09:00 UTC
+    - cron: '0 9 * * 1'
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      - run: npm ci
+      - run: npx vitest run --exclude='**/*.integration.*'
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    # Only run if secrets are available (skip for forks / dependabot)
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Write integration credentials file
+        run: |
+          mkdir -p /tmp/m365-integration
+          echo '${{ secrets.M365_INTEGRATION_CREDS }}' > /tmp/m365-integration/credentials.json
+          chmod 600 /tmp/m365-integration/credentials.json
+
+      - name: Run integration tests
+        env:
+          M365_INTEGRATION_CLIENT_ID: ${{ secrets.M365_INTEGRATION_CLIENT_ID }}
+          M365_INTEGRATION_TENANT_ID: ${{ secrets.M365_INTEGRATION_TENANT_ID }}
+          M365_INTEGRATION_CREDS_PATH: /tmp/m365-integration/credentials.json
+        run: npx vitest run tests/user.integration.test.js
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -rf /tmp/m365-integration

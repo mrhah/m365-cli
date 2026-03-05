@@ -939,6 +939,51 @@ class GraphClient {
       return this.post(inviteEndpoint, payload);
     },
   };
+
+  /**
+   * User & Contacts endpoints
+   */
+  user = {
+    /**
+     * Search organization users by displayName
+     */
+    searchUsers: async (name, options = {}) => {
+      const { top = 10 } = options;
+      
+      const queryParams = {
+        '$filter': `startswith(displayName,'${name}')`,
+        '$select': 'id,displayName,mail,department,jobTitle,userPrincipalName',
+        '$top': top,
+        '$count': 'true',
+      };
+      
+      const response = await this.get('/users', {
+        queryParams,
+        headers: {
+          'ConsistencyLevel': 'eventual',
+        },
+      });
+      
+      return response.value || [];
+    },
+    
+    /**
+     * Search personal contacts by displayName
+     */
+    searchContacts: async (name, options = {}) => {
+      const { top = 10 } = options;
+      
+      const queryParams = {
+        '$filter': `startswith(displayName,'${name}')`,
+        '$select': 'id,displayName,emailAddresses,companyName,jobTitle',
+        '$top': top,
+      };
+      
+      const response = await this.get('/me/contacts', { queryParams });
+      
+      return response.value || [];
+    },
+  };
 }
 
 // Export singleton instance
