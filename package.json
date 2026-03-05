@@ -33,12 +33,12 @@
   "author": "",
   "repository": {
     "type": "git",
-    "url": ""
+    "url": "git+https://github.com/mrhah/m365-cli.git"
   },
   "bugs": {
-    "url": ""
+    "url": "https://github.com/mrhah/m365-cli/issues"
   },
-  "homepage": "",
+  "homepage": "https://github.com/mrhah/m365-cli#readme",
   "license": "MIT",
   "engines": {
     "node": ">=18.0.0"
