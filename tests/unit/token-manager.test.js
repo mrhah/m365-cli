@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock config
-vi.mock('../src/utils/config.js', () => ({
+vi.mock('../../src/utils/config.js', () => ({
   default: {
     get: vi.fn((key) => {
       const config = {
@@ -18,7 +18,7 @@ vi.mock('../src/utils/config.js', () => ({
 }));
 
 // Mock error
-vi.mock('../src/utils/error.js', () => ({
+vi.mock('../../src/utils/error.js', () => ({
   AuthError: class AuthError extends Error {
     constructor(message, details) {
       super(message);
@@ -42,7 +42,7 @@ vi.mock('fs', async () => {
 });
 
 // Mock device-flow
-vi.mock('../src/auth/device-flow.js', () => ({
+vi.mock('../../src/auth/device-flow.js', () => ({
   deviceCodeFlow: vi.fn(),
 }));
 

@@ -8,7 +8,7 @@ const mockCalendarList = vi.fn();
 const mockCalendarDelete = vi.fn();
 const mockGetTimezone = vi.fn();
 
-vi.mock('../src/graph/client.js', () => ({
+vi.mock('../../src/graph/client.js', () => ({
   default: {
     getTimezone: (...args) => mockGetTimezone(...args),
     calendar: {
@@ -26,7 +26,7 @@ const mockOutputCalendarList = vi.fn();
 const mockOutputCalendarDetail = vi.fn();
 const mockOutputCalendarResult = vi.fn();
 
-vi.mock('../src/utils/output.js', () => ({
+vi.mock('../../src/utils/output.js', () => ({
   outputCalendarList: (...args) => mockOutputCalendarList(...args),
   outputCalendarDetail: (...args) => mockOutputCalendarDetail(...args),
   outputCalendarResult: (...args) => mockOutputCalendarResult(...args),
@@ -34,7 +34,7 @@ vi.mock('../src/utils/output.js', () => ({
 
 // Mock error handler
 const mockHandleError = vi.fn();
-vi.mock('../src/utils/error.js', () => ({
+vi.mock('../../src/utils/error.js', () => ({
   handleError: (...args) => mockHandleError(...args),
 }));
 
