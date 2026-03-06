@@ -1,6 +1,6 @@
 # M365 CLI
 
-Modern command-line interface for Microsoft 365 personal accounts (Mail, Calendar, OneDrive, SharePoint).
+Modern command-line interface for Microsoft 365 — supports both **work/school accounts** and **personal Microsoft accounts** (Outlook.com, Hotmail, Live). Manage Mail, Calendar, OneDrive, and SharePoint from the terminal.
 
 ## Who is this for?
 
@@ -24,7 +24,8 @@ That said, it works perfectly as a standalone CLI tool for power users who prefe
 - 📧 **Mail**: List, read, send, search emails (with attachments)
 - 📅 **Calendar**: Manage events (list, create, update, delete)
 - 📁 **OneDrive**: File management (upload, download, search, share)
-- 🌐 **SharePoint**: Site and document management
+- 🌐 **SharePoint**: Site and document management (work accounts only)
+- 👤 **Personal accounts**: Outlook.com / Hotmail / Live mail, calendar, and OneDrive
 - 🔐 **Secure**: OAuth 2.0 Device Code Flow authentication
 - 🚀 **Fast**: Minimal dependencies, uses native Node.js fetch
 - 🤖 **AI-friendly**: Clean text output + JSON option
@@ -50,10 +51,14 @@ After linking, the `m365` command will be available globally.
 ### 1. Login
 
 ```bash
+# Work or school account (default)
 m365 login
+
+# Personal Microsoft account (Outlook.com, Hotmail, Live)
+m365 login --account-type personal
 ```
 
-Follow the prompts to authenticate with your Microsoft 365 account using Device Code Flow.
+Follow the prompts to authenticate using Device Code Flow.
 
 ### 2. List Emails
 
@@ -79,11 +84,14 @@ m365 onedrive ls
 
 ```bash
 m365 login [options]           # Login with Device Code Flow
+  --account-type <type>        # Account type: 'work' (default) or 'personal'
   --scopes <scopes>            # Comma-separated scopes to request (overrides defaults)
   --add-scopes <scopes>        # Comma-separated scopes to add to defaults
   --exclude <scopes>           # Comma-separated scopes to exclude from defaults
 m365 logout                    # Clear stored credentials
 ```
+
+> **Personal accounts** support Mail, Calendar, OneDrive, and User commands. SharePoint requires a work/school account.
 
 ### Mail Commands
 

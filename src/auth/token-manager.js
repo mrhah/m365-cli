@@ -9,6 +9,48 @@ import { deviceCodeFlow } from './device-flow.js';
  * Handles token storage, refresh, and validation
  */
 
+// Personal Microsoft account tenant ID
+const MSA_TENANT_ID = '9188040d-6c67-4c5b-b112-36a304b66dad';
+
+/**
+ * Detect account type from access token JWT
+ * @param {string} accessToken
+ * @param {string} [hint] - Fallback when token is opaque (personal MSA tokens aren't JWTs)
+ */
+function detectAccountType(accessToken, hint) {
+  try {
+    const parts = accessToken.split('.');
+    if (parts.length !== 3) {
+      // Opaque token (personal Microsoft accounts) — use hint or default
+      return hint || 'work';
+    }
+    const payload = JSON.parse(
+      Buffer.from(parts[1], 'base64url').toString()
+    );
+    return payload.tid === MSA_TENANT_ID ? 'personal' : 'work';
+  } catch {
+    return hint || 'work';
+  }
+}
+
+/**
+ * Get current account type from stored credentials
+ * Returns 'work' by default (backward compatible)
+ */
+export function getAccountType() {
+  const creds = loadCreds();
+  return creds?.accountType || 'work';
+}
+
+/**
+ * Get default scopes based on account type
+ */
+export function getDefaultScopes(accountType = 'work') {
+  return accountType === 'personal'
+    ? config.get('personalScopes')
+    : config.get('workScopes');
+}
+
 /**
  * Load credentials from file
  * Supports migration from old token file
@@ -97,9 +139,12 @@ export function isTokenExpired(creds) {
  * Refresh access token using refresh token
  */
 export async function refreshToken(refreshToken) {
-  const tenantId = config.get('tenantId');
+  const creds = loadCreds();
+  const accountType = creds?.accountType || 'work';
+  // Personal account tokens are issued by /common, so refresh must use /common too
+  const tenantId = accountType === 'personal' ? 'common' : config.get('tenantId');
   const clientId = config.get('clientId');
-  const scopes = config.get('scopes').join(' ');
+  const scopes = getDefaultScopes(accountType).join(' ');
   const authUrl = config.get('authUrl');
   
   const url = `${authUrl}/${tenantId}/oauth2/v2.0/token`;
@@ -172,6 +217,7 @@ export async function getAccessToken() {
       refreshToken: refreshed.refreshToken,
       expiresAt: Math.floor(Date.now() / 1000) + refreshed.expiresIn,
       grantedScopes: creds.grantedScopes || [],
+      accountType: creds.accountType || 'work',
     };
     
     saveCreds(newCreds);
@@ -189,7 +235,10 @@ export async function getAccessToken() {
  * @param {string} [options.addScopes] - Comma-separated scopes to add to defaults
  * @param {string} [options.exclude] - Comma-separated scopes to exclude from defaults
  */
-export async function login({ scopes, addScopes, exclude } = {}) {
+export async function login({ scopes, addScopes, exclude, accountType } = {}) {
+  // Default account type is 'work'
+  const effectiveAccountType = accountType || 'work';
+
   // Resolve final scope list
   let overrideScopes;
   let effectiveScopes;
@@ -216,7 +265,7 @@ export async function login({ scopes, addScopes, exclude } = {}) {
       if (s === 'offline_access' || s.startsWith('https://')) return s;
       return `${GRAPH_PREFIX}${s}`;
     });
-    const defaultScopes = config.get('scopes');
+    const defaultScopes = getDefaultScopes(effectiveAccountType);
     overrideScopes = [...new Set([...defaultScopes, ...additionalList])];
     effectiveScopes = overrideScopes;
 
@@ -231,7 +280,7 @@ export async function login({ scopes, addScopes, exclude } = {}) {
       if (s === 'offline_access' || s.startsWith('https://')) return s;
       return `${GRAPH_PREFIX}${s}`;
     });
-    const defaultScopes = config.get('scopes');
+    const defaultScopes = getDefaultScopes(effectiveAccountType);
     overrideScopes = defaultScopes.filter(s => !excludeList.includes(s));
     effectiveScopes = overrideScopes;
 
@@ -241,12 +290,27 @@ export async function login({ scopes, addScopes, exclude } = {}) {
     }
   } else {
     // Default — use all scopes from config
-    effectiveScopes = config.get('scopes');
+    effectiveScopes = getDefaultScopes(effectiveAccountType);
+    // For personal accounts, we must pass personalScopes explicitly
+    // because requestDeviceCode defaults to workScopes
+    if (effectiveAccountType === 'personal') {
+      overrideScopes = effectiveScopes;
+    }
   }
 
   try {
-    const flowOptions = overrideScopes ? { overrideScopes } : {};
+    // Use 'common' tenant for personal accounts — /consumers device codes
+    // aren't recognized by the Microsoft verification page, but /common
+    // supports both work and personal accounts (user picks in browser)
+    const overrideTenant = effectiveAccountType === 'personal' ? 'common' : undefined;
+    const flowOptions = {
+      ...(overrideScopes ? { overrideScopes } : {}),
+      ...(overrideTenant ? { overrideTenant } : {}),
+    };
     const result = await deviceCodeFlow(flowOptions);
+    
+    // Detect actual account type from JWT (pass user hint for opaque MSA tokens)
+    const detectedType = detectAccountType(result.accessToken, effectiveAccountType);
     
     const creds = {
       tenantId: config.get('tenantId'),
@@ -255,11 +319,14 @@ export async function login({ scopes, addScopes, exclude } = {}) {
       refreshToken: result.refreshToken,
       expiresAt: Math.floor(Date.now() / 1000) + result.expiresIn,
       grantedScopes: effectiveScopes,
+      accountType: detectedType,
     };
     
     saveCreds(creds);
     
+    const typeLabel = detectedType === 'personal' ? 'Personal Microsoft Account' : 'Work/School Account';
     console.log('\n✅ Authentication successful!');
+    console.log(`   Account type: ${typeLabel}`);
     console.log(`   Credentials saved to: ${config.getCredsPath()}`);
     
     return true;
@@ -294,6 +361,8 @@ export default {
   isTokenExpired,
   refreshToken,
   getAccessToken,
+  getAccountType,
+  getDefaultScopes,
   login,
   logout,
 };

@@ -8,6 +8,7 @@ import {
   outputOneDriveInviteResult,
 } from '../utils/output.js';
 import { handleError } from '../utils/error.js';
+import { getAccountType } from '../auth/token-manager.js';
 import { readFile, writeFile } from 'fs/promises';
 import { basename } from 'path';
 import { createReadStream, createWriteStream } from 'fs';
@@ -247,7 +248,9 @@ export async function searchFiles(query, options = {}) {
  */
 export async function shareFile(path, options = {}) {
   try {
-    const { type = 'view', scope = 'organization', json = false } = options;
+    // Personal accounts don't support 'organization' scope, default to 'anonymous'
+    const defaultScope = getAccountType() === 'personal' ? 'anonymous' : 'organization';
+    const { type = 'view', scope = defaultScope, json = false } = options;
     
     if (!path) {
       throw new Error('Path is required');

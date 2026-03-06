@@ -46,12 +46,15 @@ jobs:
           mkdir -p /tmp/m365-integration
           echo '${{ secrets.M365_INTEGRATION_CREDS }}' > /tmp/m365-integration/credentials.json
           chmod 600 /tmp/m365-integration/credentials.json
+          echo '${{ secrets.M365_INTEGRATION_PERSONAL_CREDS }}' > /tmp/m365-integration/personal-credentials.json
+          chmod 600 /tmp/m365-integration/personal-credentials.json
 
       - name: Run integration tests
         env:
           M365_INTEGRATION_CLIENT_ID: ${{ secrets.M365_INTEGRATION_CLIENT_ID }}
           M365_INTEGRATION_TENANT_ID: ${{ secrets.M365_INTEGRATION_TENANT_ID }}
           M365_INTEGRATION_CREDS_PATH: /tmp/m365-integration/credentials.json
+          M365_INTEGRATION_PERSONAL_CREDS_PATH: /tmp/m365-integration/personal-credentials.json
           M365_INTEGRATION_SP_SITE: ${{ secrets.M365_INTEGRATION_SP_SITE }}
         run: npm run test:integration
 

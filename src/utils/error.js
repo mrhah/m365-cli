@@ -2,6 +2,8 @@
  * Custom error classes for M365 CLI
  */
 
+import { getAccountType } from '../auth/token-manager.js';
+
 export class M365Error extends Error {
   constructor(message, code, details = null) {
     super(message);
@@ -109,6 +111,13 @@ export function handleError(error, options = {}) {
       console.error('   Or login with a complete custom scope list:');
       console.error('      m365 login --scopes User.Read,Files.ReadWrite,Sites.ReadWrite.All,offline_access');
       console.error('');
+    }
+
+    // Personal account hint
+    if (getAccountType() === 'personal') {
+      console.error('');
+      console.error('💡 You are logged in with a personal Microsoft account.');
+      console.error('   Some features (SharePoint, organization user search) are not available.');
     }
   }
   

@@ -1,6 +1,7 @@
 import graphClient from '../graph/client.js';
 import { outputUserSearchResults } from '../utils/output.js';
 import { handleError } from '../utils/error.js';
+import { getAccountType } from '../auth/token-manager.js';
 
 /**
  * User commands
@@ -17,11 +18,23 @@ export async function searchUser(name, options) {
       throw new Error('Search name is required');
     }
     
-    // Search both sources in parallel
-    const [orgResult, contactsResult] = await Promise.allSettled([
-      graphClient.user.searchUsers(name, { top }),
-      graphClient.user.searchContacts(name, { top }),
-    ]);
+    const accountType = getAccountType();
+    
+    let orgResult, contactsResult;
+    
+    if (accountType === 'personal') {
+      // Personal accounts: only search contacts (no org directory)
+      orgResult = { status: 'rejected', reason: new Error('Not available for personal accounts') };
+      contactsResult = await Promise.allSettled([
+        graphClient.user.searchContacts(name, { top }),
+      ]).then(r => r[0]);
+    } else {
+      // Work accounts: search both sources in parallel
+      [orgResult, contactsResult] = await Promise.allSettled([
+        graphClient.user.searchUsers(name, { top }),
+        graphClient.user.searchContacts(name, { top }),
+      ]);
+    }
     
     const results = [];
     
