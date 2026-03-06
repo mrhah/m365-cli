@@ -111,6 +111,28 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         expect(Array.isArray(mails)).toBe(true);
         expect(mails.length).toBeLessThanOrEqual(2);
       });
+
+      it('should return focused emails sorted by receivedDateTime descending', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const mails = await graphClient.mail.list({
+          top: 10,
+          folder: 'inbox',
+          filter: "inferenceClassification eq 'focused'",
+        });
+
+        if (mails.length < 2) {
+          console.log('  (fewer than 2 focused emails — cannot verify sort order)');
+          return ctx.skip();
+        }
+
+        // Verify descending order: each receivedDateTime >= the next one
+        for (let i = 0; i < mails.length - 1; i++) {
+          const current = new Date(mails[i].receivedDateTime).getTime();
+          const next = new Date(mails[i + 1].receivedDateTime).getTime();
+          expect(current).toBeGreaterThanOrEqual(next);
+        }
+      });
     });
 
     describe('Get email (/me/messages/{id})', () => {
