@@ -194,7 +194,7 @@ class GraphClient {
      * List messages
      */
     list: async (options = {}) => {
-      const { top = 10, folder = 'inbox', select, orderby } = options;
+      const { top = 10, folder = 'inbox', select, orderby, filter } = options;
       
       const queryParams = {
         '$top': top,
@@ -208,8 +208,15 @@ class GraphClient {
       
       if (orderby) {
         queryParams['$orderby'] = orderby;
-      } else {
+      } else if (!filter) {
+        // Skip default $orderby when $filter is present — Graph API returns
+        // InefficientFilter (400) for certain filter+orderby combinations
+        // (e.g. inferenceClassification filter with receivedDateTime sort)
         queryParams['$orderby'] = 'receivedDateTime desc';
+      }
+
+      if (filter) {
+        queryParams['$filter'] = filter;
       }
       
       // Map friendly folder names to Graph API names
