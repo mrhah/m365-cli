@@ -5,7 +5,7 @@ import { getAvailableAccounts, setupAuth, teardownAuth } from './helpers/setup.j
 
 const accounts = getAvailableAccounts();
 
-describe('[Integration] Mail — Graph API', { timeout: 30000 }, () => {
+describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
   if (accounts.length === 0) {
     it('requires integration env vars', (ctx) => {
       console.log('⏭️  Integration env vars not set — skipping mail integration tests');
@@ -121,18 +121,43 @@ describe('[Integration] Mail — Graph API', { timeout: 30000 }, () => {
     });
 
     describe('Attachments (/me/messages/{id}/attachments)', () => {
+      let sentMailId = null;
+
+      // Send an email with attachment to self so we have a guaranteed test target
+      beforeAll(async () => {
+        if (!hasAuth) return;
+        try {
+          const user = await graphClient.getCurrentUser();
+          const selfEmail = user.mail || user.userPrincipalName;
+          if (!selfEmail) return;
+
+          const testContent = Buffer.from('integration-test-attachment-content').toString('base64');
+          const message = {
+            subject: `[Integration Test] Attachment Test (${account.type}) ${Date.now()}`,
+            body: { contentType: 'Text', content: 'Automated test — safe to delete.' },
+            toRecipients: [{ emailAddress: { address: selfEmail } }],
+            attachments: [{
+              '@odata.type': '#microsoft.graph.fileAttachment',
+              name: 'test-attachment.txt',
+              contentBytes: testContent,
+            }],
+          };
+          await graphClient.mail.send(message);
+
+          // Wait for delivery
+          for (let i = 0; i < 12; i++) {
+            await new Promise(r => setTimeout(r, 5000));
+            const mails = await graphClient.mail.list({ top: 5, folder: 'inbox' });
+            const found = mails.find(m => m.subject?.includes('Attachment Test') && m.hasAttachments);
+            if (found) { sentMailId = found.id; break; }
+          }
+        } catch { /* best effort */ }
+      }, 75000);
+
       it('should list attachments for an email', async (ctx) => {
-        if (!hasAuth) return ctx.skip();
+        if (!hasAuth || !sentMailId) return ctx.skip();
 
-        const mails = await graphClient.mail.list({ top: 20, folder: 'inbox' });
-        const mailWithAttachments = mails.find(m => m.hasAttachments);
-
-        if (!mailWithAttachments) {
-          console.log('  (no emails with attachments found — skipping)');
-          return ctx.skip();
-        }
-
-        const attachments = await graphClient.mail.attachments(mailWithAttachments.id);
+        const attachments = await graphClient.mail.attachments(sentMailId);
 
         expect(Array.isArray(attachments)).toBe(true);
         expect(attachments.length).toBeGreaterThan(0);
