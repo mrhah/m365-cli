@@ -34,9 +34,15 @@ program
   .option('--scopes <scopes>', 'Comma-separated list of scopes to request (overrides defaults)')
   .option('--exclude <scopes>', 'Comma-separated list of scopes to exclude from defaults')
   .option('--add-scopes <scopes>', 'Comma-separated list of scopes to add to defaults')
+  .option('--account-type <type>', 'Account type: work (default) or personal')
   .action(async (options) => {
     try {
-      await login({ scopes: options.scopes, addScopes: options.addScopes, exclude: options.exclude });
+      await login({
+        scopes: options.scopes,
+        addScopes: options.addScopes,
+        exclude: options.exclude,
+        accountType: options.accountType,
+      });
     } catch (error) {
       handleError(error);
     }

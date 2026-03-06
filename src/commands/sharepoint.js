@@ -13,6 +13,7 @@ import { readFile } from 'fs/promises';
 import { basename } from 'path';
 import { createWriteStream } from 'fs';
 import { stat } from 'fs/promises';
+import { ensureWorkAccount } from '../utils/account.js';
 
 /**
  * SharePoint commands
@@ -22,6 +23,7 @@ import { stat } from 'fs/promises';
  * List accessible SharePoint sites
  */
 export async function listSites(options = {}) {
+  ensureWorkAccount('sharepoint');
   try {
     const { search, top = 50, json = false } = options;
     
@@ -37,6 +39,7 @@ export async function listSites(options = {}) {
  * List site lists and document libraries
  */
 export async function listLists(site, options = {}) {
+  ensureWorkAccount('sharepoint');
   try {
     const { top = 100, json = false } = options;
     
@@ -56,6 +59,7 @@ export async function listLists(site, options = {}) {
  * List items in a SharePoint list
  */
 export async function listItems(site, listId, options = {}) {
+  ensureWorkAccount('sharepoint');
   try {
     const { top = 100, json = false } = options;
     
@@ -75,6 +79,7 @@ export async function listItems(site, listId, options = {}) {
  * List files in SharePoint document library
  */
 export async function listFiles(site, path = '', options = {}) {
+  ensureWorkAccount('sharepoint');
   try {
     const { top = 100, json = false } = options;
     
@@ -94,6 +99,7 @@ export async function listFiles(site, path = '', options = {}) {
  * Download file from SharePoint
  */
 export async function downloadFile(site, remotePath, localPath, options = {}) {
+  ensureWorkAccount('sharepoint');
   try {
     const { json = false } = options;
     
@@ -165,6 +171,7 @@ export async function downloadFile(site, remotePath, localPath, options = {}) {
  * Upload file to SharePoint
  */
 export async function uploadFile(site, localPath, remotePath, options = {}) {
+  ensureWorkAccount('sharepoint');
   try {
     const { json = false } = options;
     
@@ -268,6 +275,7 @@ export async function uploadFile(site, localPath, remotePath, options = {}) {
  * Search SharePoint content
  */
 export async function searchContent(query, options = {}) {
+  ensureWorkAccount('sharepoint');
   try {
     const { top = 50, json = false } = options;
     

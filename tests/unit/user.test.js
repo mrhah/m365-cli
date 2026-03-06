@@ -23,11 +23,17 @@ vi.mock('../../src/utils/error.js', () => ({
   handleError: (...args) => mockHandleError(...args),
 }));
 
+const mockGetAccountType = vi.fn().mockReturnValue('work');
+vi.mock('../../src/auth/token-manager.js', () => ({
+  getAccountType: (...args) => mockGetAccountType(...args),
+}));
+
 import { searchUser } from '../../src/commands/user.js';
 
 describe('User search command', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetAccountType.mockReturnValue('work');
   });
 
   it('should search both org users and contacts', async () => {
@@ -200,5 +206,49 @@ describe('User search command', () => {
 
     expect(mockHandleError).toHaveBeenCalledWith(orgError, { json: false });
     expect(mockOutputUserSearchResults).not.toHaveBeenCalled();
+  });
+
+  describe('personal account', () => {
+    beforeEach(() => {
+      mockGetAccountType.mockReturnValue('personal');
+    });
+
+    it('should only search contacts for personal accounts', async () => {
+      mockSearchContacts.mockResolvedValue([]);
+
+      await searchUser('Jerry', { top: 10, json: false });
+
+      expect(mockSearchUsers).not.toHaveBeenCalled();
+      expect(mockSearchContacts).toHaveBeenCalledWith('Jerry', { top: 10 });
+    });
+
+    it('should return contact results for personal accounts', async () => {
+      mockSearchContacts.mockResolvedValue([
+        {
+          id: 'c1',
+          displayName: 'Jerry Friend',
+          emailAddresses: [{ address: 'jerry@gmail.com' }],
+          companyName: 'FriendCo',
+          jobTitle: 'CEO',
+        },
+      ]);
+
+      await searchUser('Jerry', { top: 10, json: false });
+
+      const results = mockOutputUserSearchResults.mock.calls[0][0];
+      expect(results).toHaveLength(1);
+      expect(results[0].source).toBe('contacts');
+      expect(results[0].email).toBe('jerry@gmail.com');
+    });
+
+    it('should handle contacts failure for personal accounts', async () => {
+      mockSearchContacts.mockRejectedValue(new Error('Contacts failed'));
+
+      await searchUser('Jerry', { top: 10, json: false });
+
+      // Contacts-only search can still output empty results since orgResult is manually rejected
+      // The "both failed" check should trigger handleError
+      expect(mockHandleError).toHaveBeenCalled();
+    });
   });
 });

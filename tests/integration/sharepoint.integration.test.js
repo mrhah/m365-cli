@@ -1,102 +1,42 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { existsSync} from 'fs';
-import { resolve } from 'path';
-import { loadCreds, getAccessToken } from '../../src/auth/token-manager.js';
 import graphClient from '../../src/graph/client.js';
 import sharepointCommands from '../../src/commands/sharepoint.js';
+import { getAvailableAccounts, setupAuth, teardownAuth } from './helpers/setup.js';
 
-/**
- * Integration tests for SharePoint feature.
- *
- * These tests call the real Microsoft Graph API and require:
- *   1. A dedicated integration credentials file
- *   2. Environment variables pointing to the integration app registration
- *   3. Optionally, M365_INTEGRATION_SP_SITE env var with a SharePoint site URL
- *      (e.g., "contoso.sharepoint.com:/sites/teamsite")
- *
- * Setup:
- *   export M365_INTEGRATION_CLIENT_ID="<integration-app-client-id>"
- *   export M365_INTEGRATION_TENANT_ID="<integration-app-tenant-id>"
- *   export M365_INTEGRATION_CREDS_PATH="~/.m365-cli/integration-credentials.json"
- *   export M365_INTEGRATION_SP_SITE="contoso.sharepoint.com:/sites/teamsite"  # optional
- *
- * Run:
- *   npx vitest run tests/sharepoint.integration.test.js
- */
-
-const INTEGRATION_CLIENT_ID = process.env.M365_INTEGRATION_CLIENT_ID;
-const INTEGRATION_TENANT_ID = process.env.M365_INTEGRATION_TENANT_ID;
-const INTEGRATION_CREDS_PATH = process.env.M365_INTEGRATION_CREDS_PATH;
 const INTEGRATION_SP_SITE = process.env.M365_INTEGRATION_SP_SITE;
 
-let hasAuth = false;
-let savedEnv = {};
-
-// Resolved site ID for tests that need a specific site
-let resolvedSiteId = null;
-
-beforeAll(async () => {
-  if (!INTEGRATION_CLIENT_ID || !INTEGRATION_TENANT_ID || !INTEGRATION_CREDS_PATH) {
-    console.log(
-      '⏭️  Integration env vars not set — skipping SharePoint integration tests'
-    );
-    return;
-  }
-
-  const resolvedCredsPath = INTEGRATION_CREDS_PATH.startsWith('~/')
-    ? resolve(process.env.HOME, INTEGRATION_CREDS_PATH.slice(2))
-    : resolve(INTEGRATION_CREDS_PATH);
-
-  if (!existsSync(resolvedCredsPath)) {
-    console.log(
-      `⏭️  Integration credentials file not found at ${resolvedCredsPath} — skipping`
-    );
-    return;
-  }
-
-  savedEnv = {
-    M365_CLIENT_ID: process.env.M365_CLIENT_ID,
-    M365_TENANT_ID: process.env.M365_TENANT_ID,
-    M365_CREDS_PATH: process.env.M365_CREDS_PATH,
-  };
-
-  process.env.M365_CLIENT_ID = INTEGRATION_CLIENT_ID;
-  process.env.M365_TENANT_ID = INTEGRATION_TENANT_ID;
-  process.env.M365_CREDS_PATH = resolvedCredsPath;
-
-  try {
-    const creds = loadCreds();
-    if (!creds || !creds.accessToken) {
-      console.log('⏭️  No valid credentials — skipping SharePoint integration tests');
-      return;
-    }
-    await getAccessToken();
-    hasAuth = true;
-
-    // Try to resolve the SharePoint site if provided
-    if (INTEGRATION_SP_SITE) {
-      try {
-        resolvedSiteId = await graphClient.sharepoint._parseSite(INTEGRATION_SP_SITE);
-      } catch (error) {
-        console.log(`⚠️  Could not resolve SP site (${error.message}) — site-specific tests will skip`);
-      }
-    }
-  } catch (error) {
-    console.log(`⏭️  Auth unavailable (${error.message}) — skipping SharePoint integration tests`);
-  }
-});
-
-afterAll(() => {
-  for (const [key, value] of Object.entries(savedEnv)) {
-    if (value === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
-  }
-});
+// SharePoint is work-account only
+const accounts = getAvailableAccounts({ workOnly: true });
 
 describe('[Integration] SharePoint — Graph API', { timeout: 30000 }, () => {
+  if (accounts.length === 0) {
+    it('requires integration env vars (work account)', (ctx) => {
+      console.log('⏭️  Integration env vars not set — skipping SharePoint integration tests');
+      ctx.skip();
+    });
+    return;
+  }
+
+  describe.each(accounts)('$type account', (account) => {
+    let hasAuth = false;
+    let savedEnv = {};
+    let resolvedSiteId = null;
+
+    beforeAll(async () => {
+      const result = await setupAuth(account);
+      hasAuth = result.hasAuth;
+      savedEnv = result.savedEnv;
+
+      if (hasAuth && INTEGRATION_SP_SITE) {
+        try {
+          resolvedSiteId = await graphClient.sharepoint._parseSite(INTEGRATION_SP_SITE);
+        } catch (error) {
+          console.log(`⚠️  Could not resolve SP site (${error.message}) — site-specific tests will skip`);
+        }
+      }
+    });
+
+    afterAll(() => teardownAuth(savedEnv));
   describe('List sites', () => {
     it('should list followed sites', { retry: 2 }, async (ctx) => {
       if (!hasAuth) return ctx.skip();
@@ -400,5 +340,6 @@ describe('[Integration] SharePoint — Graph API', { timeout: 30000 }, () => {
         throw error;
       }
     });
+  });
   });
 });

@@ -1,5 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 
+// Mock token-manager
+const { mockGetAccountType } = vi.hoisted(() => {
+  const mockGetAccountType = vi.fn().mockReturnValue('work');
+  return { mockGetAccountType };
+});
+vi.mock('../../src/auth/token-manager.js', () => ({
+  getAccountType: mockGetAccountType,
+  default: { getAccountType: mockGetAccountType },
+}));
+
 // Mock console.log and console.error
 const mockConsoleLog = vi.fn();
 const mockConsoleError = vi.fn();
@@ -17,7 +27,7 @@ vi.stubGlobal('process', {
   exit: mockExit,
 });
 
-import { M365Error, AuthError, ApiError, TokenExpiredError, InsufficientPrivilegesError, handleError, parseGraphError } from '../../src/utils/error.js';
+import { M365Error, AuthError, ApiError, TokenExpiredError, InsufficientPrivilegesError, ConsentRequiredError, handleError, parseGraphError } from '../../src/utils/error.js';
 
 describe('Error Classes', () => {
   describe('M365Error', () => {
@@ -72,6 +82,7 @@ describe('Error Classes', () => {
 describe('handleError', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockGetAccountType.mockReturnValue('work');
   });
 
   it('should output JSON format when json option is true', () => {
@@ -129,6 +140,41 @@ describe('handleError', () => {
     
     const allOutput = mockConsoleError.mock.calls.map(c => c[0]).join('\n');
     expect(allOutput).not.toContain('--add-scopes');
+    expect(mockExit).toHaveBeenCalledWith(1);
+  });
+
+  it('should show personal account hint when logged in with personal account', () => {
+    mockGetAccountType.mockReturnValue('personal');
+    const error = new M365Error('Some error', 'SOME_CODE');
+    
+    handleError(error);
+    
+    const allOutput = mockConsoleError.mock.calls.map(c => c[0]).join('\n');
+    expect(allOutput).toContain('personal Microsoft account');
+    expect(allOutput).toContain('SharePoint');
+    expect(mockExit).toHaveBeenCalledWith(1);
+  });
+
+  it('should NOT show personal account hint for work accounts', () => {
+    mockGetAccountType.mockReturnValue('work');
+    const error = new M365Error('Some error', 'SOME_CODE');
+    
+    handleError(error);
+    
+    const allOutput = mockConsoleError.mock.calls.map(c => c[0]).join('\n');
+    expect(allOutput).not.toContain('personal Microsoft account');
+    expect(mockExit).toHaveBeenCalledWith(1);
+  });
+
+  it('should show both consent suggestions and personal hint for personal account with ConsentRequiredError', () => {
+    mockGetAccountType.mockReturnValue('personal');
+    const error = new ConsentRequiredError('Admin consent required');
+    
+    handleError(error);
+    
+    const allOutput = mockConsoleError.mock.calls.map(c => c[0]).join('\n');
+    expect(allOutput).toContain('💡 Suggestions');
+    expect(allOutput).toContain('personal Microsoft account');
     expect(mockExit).toHaveBeenCalledWith(1);
   });
 });

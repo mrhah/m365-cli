@@ -1,117 +1,56 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { existsSync, writeFileSync, unlinkSync } from 'fs';
-import { resolve, join } from 'path';
+import { writeFileSync, unlinkSync } from 'fs';
+import { join } from 'path';
 import { tmpdir } from 'os';
-import { loadCreds, getAccessToken } from '../../src/auth/token-manager.js';
 import graphClient from '../../src/graph/client.js';
 import onedriveCommands from '../../src/commands/onedrive.js';
+import { getAvailableAccounts, setupAuth, teardownAuth } from './helpers/setup.js';
 
-/**
- * Integration tests for OneDrive feature.
- *
- * These tests call the real Microsoft Graph API and require:
- *   1. A dedicated integration credentials file
- *   2. Environment variables pointing to the integration app registration
- *
- * Setup:
- *   export M365_INTEGRATION_CLIENT_ID="<integration-app-client-id>"
- *   export M365_INTEGRATION_TENANT_ID="<integration-app-tenant-id>"
- *   export M365_INTEGRATION_CREDS_PATH="~/.m365-cli/integration-credentials.json"
- *
- * Run:
- *   npx vitest run tests/onedrive.integration.test.js
- */
-
-const INTEGRATION_CLIENT_ID = process.env.M365_INTEGRATION_CLIENT_ID;
-const INTEGRATION_TENANT_ID = process.env.M365_INTEGRATION_TENANT_ID;
-const INTEGRATION_CREDS_PATH = process.env.M365_INTEGRATION_CREDS_PATH;
-
-let hasAuth = false;
-let savedEnv = {};
-
-// Unique test folder name to avoid collisions
-const TEST_FOLDER = `integration-test-${Date.now()}`;
-
-// Track items to clean up
-const itemsToCleanup = [];
-
-// Temp files to clean up
-const tempFilesToCleanup = [];
-
-beforeAll(async () => {
-  if (!INTEGRATION_CLIENT_ID || !INTEGRATION_TENANT_ID || !INTEGRATION_CREDS_PATH) {
-    console.log(
-      '⏭️  Integration env vars not set — skipping OneDrive integration tests'
-    );
-    return;
-  }
-
-  const resolvedCredsPath = INTEGRATION_CREDS_PATH.startsWith('~/')
-    ? resolve(process.env.HOME, INTEGRATION_CREDS_PATH.slice(2))
-    : resolve(INTEGRATION_CREDS_PATH);
-
-  if (!existsSync(resolvedCredsPath)) {
-    console.log(
-      `⏭️  Integration credentials file not found at ${resolvedCredsPath} — skipping`
-    );
-    return;
-  }
-
-  savedEnv = {
-    M365_CLIENT_ID: process.env.M365_CLIENT_ID,
-    M365_TENANT_ID: process.env.M365_TENANT_ID,
-    M365_CREDS_PATH: process.env.M365_CREDS_PATH,
-  };
-
-  process.env.M365_CLIENT_ID = INTEGRATION_CLIENT_ID;
-  process.env.M365_TENANT_ID = INTEGRATION_TENANT_ID;
-  process.env.M365_CREDS_PATH = resolvedCredsPath;
-
-  try {
-    const creds = loadCreds();
-    if (!creds || !creds.accessToken) {
-      console.log('⏭️  No valid credentials — skipping OneDrive integration tests');
-      return;
-    }
-    await getAccessToken();
-    hasAuth = true;
-  } catch (error) {
-    console.log(`⏭️  Auth unavailable (${error.message}) — skipping OneDrive integration tests`);
-  }
-});
-
-afterAll(async () => {
-  // Clean up remote items (in reverse order to handle nested items first)
-  if (hasAuth) {
-    for (const path of itemsToCleanup.reverse()) {
-      try {
-        await graphClient.onedrive.remove(path);
-      } catch {
-        // Ignore cleanup errors
-      }
-    }
-  }
-
-  // Clean up temp files
-  for (const f of tempFilesToCleanup) {
-    try {
-      unlinkSync(f);
-    } catch {
-      // Ignore
-    }
-  }
-
-  // Restore env
-  for (const [key, value] of Object.entries(savedEnv)) {
-    if (value === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
-  }
-});
+const accounts = getAvailableAccounts();
 
 describe('[Integration] OneDrive — Graph API', { timeout: 30000 }, () => {
+  if (accounts.length === 0) {
+    it('requires integration env vars', (ctx) => {
+      console.log('⏭️  Integration env vars not set — skipping OneDrive integration tests');
+      ctx.skip();
+    });
+    return;
+  }
+
+  describe.each(accounts)('$type account', (account) => {
+    let hasAuth = false;
+    let savedEnv = {};
+
+    // Unique test folder name to avoid collisions between account types
+    const TEST_FOLDER = `integration-test-${account.type}-${Date.now()}`;
+    const itemsToCleanup = [];
+    const tempFilesToCleanup = [];
+
+    beforeAll(async () => {
+      const result = await setupAuth(account);
+      hasAuth = result.hasAuth;
+      savedEnv = result.savedEnv;
+    });
+
+    afterAll(async () => {
+      if (hasAuth) {
+        for (const path of itemsToCleanup.reverse()) {
+          try {
+            await graphClient.onedrive.remove(path);
+          } catch {
+            // Ignore cleanup errors
+          }
+        }
+      }
+      for (const f of tempFilesToCleanup) {
+        try {
+          unlinkSync(f);
+        } catch {
+          // Ignore
+        }
+      }
+      teardownAuth(savedEnv);
+    });
   describe('List files (/me/drive/root/children)', () => {
     it('should list root files and folders', { retry: 2 }, async (ctx) => {
       if (!hasAuth) return ctx.skip();
@@ -268,10 +207,12 @@ describe('[Integration] OneDrive — Graph API', { timeout: 30000 }, () => {
       const remotePath = `${TEST_FOLDER}/share-test.txt`;
       await graphClient.onedrive.upload(remotePath, content);
 
+      const shareScope = account.type === 'personal' ? 'anonymous' : 'organization';
+
       try {
         const result = await graphClient.onedrive.share(remotePath, {
           type: 'view',
-          scope: 'organization',
+          scope: shareScope,
         });
 
         expect(result).toHaveProperty('link');
@@ -388,5 +329,6 @@ describe('[Integration] OneDrive — Graph API', { timeout: 30000 }, () => {
         onedriveCommands.rm(remotePath, { json: true, force: true })
       ).resolves.not.toThrow();
     });
+  });
   });
 });

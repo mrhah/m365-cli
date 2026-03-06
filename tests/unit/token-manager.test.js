@@ -9,7 +9,8 @@ vi.mock('../../src/utils/config.js', () => ({
         clientId: 'test-client-id',
         credsPath: '~/.m365-cli/credentials.json',
         tokenRefreshBuffer: 60,
-        scopes: ['Mail.Read', 'Files.Read'],
+        workScopes: ['Mail.Read', 'Files.Read'],
+        personalScopes: ['Mail.Read', 'Files.Read'],
       };
       return config[key];
     }),
@@ -47,7 +48,7 @@ vi.mock('../../src/auth/device-flow.js', () => ({
 }));
 
 import { readFileSync, writeFileSync, mkdirSync, chmodSync, unlinkSync } from 'fs';
-import { isTokenExpired, loadCreds, saveCreds, logout, login } from '../../src/auth/token-manager.js';
+import { isTokenExpired, loadCreds, saveCreds, logout, login, getAccountType, getDefaultScopes } from '../../src/auth/token-manager.js';
 
 describe('Token Manager', () => {
   beforeEach(() => {
@@ -250,6 +251,114 @@ describe('Token Manager', () => {
       // The mock config has 'Mail.Read' (without prefix), addScopes normalizes to 'https://graph.microsoft.com/Mail.Read'
       // So they won't deduplicate unless the formats match. This test verifies the Set deduplication logic.
       expect(call.overrideScopes).toBeDefined();
+    });
+  });
+
+  describe('getAccountType', () => {
+    it('should return "work" when no credentials exist', () => {
+      readFileSync.mockImplementation(() => {
+        throw { code: 'ENOENT' };
+      });
+      expect(getAccountType()).toBe('work');
+    });
+
+    it('should return "work" when credentials have no accountType field', () => {
+      readFileSync.mockReturnValue(JSON.stringify({ accessToken: 'token' }));
+      expect(getAccountType()).toBe('work');
+    });
+
+    it('should return "personal" when credentials have accountType "personal"', () => {
+      readFileSync.mockReturnValue(JSON.stringify({ accessToken: 'token', accountType: 'personal' }));
+      expect(getAccountType()).toBe('personal');
+    });
+
+    it('should return "work" when credentials have accountType "work"', () => {
+      readFileSync.mockReturnValue(JSON.stringify({ accessToken: 'token', accountType: 'work' }));
+      expect(getAccountType()).toBe('work');
+    });
+  });
+
+  describe('getDefaultScopes', () => {
+    it('should return workScopes for "work" account type', () => {
+      const scopes = getDefaultScopes('work');
+      expect(scopes).toEqual(['Mail.Read', 'Files.Read']);
+    });
+
+    it('should return personalScopes for "personal" account type', () => {
+      const scopes = getDefaultScopes('personal');
+      expect(scopes).toEqual(['Mail.Read', 'Files.Read']);
+    });
+
+    it('should default to workScopes when no argument provided', () => {
+      const scopes = getDefaultScopes();
+      expect(scopes).toEqual(['Mail.Read', 'Files.Read']);
+    });
+  });
+
+  describe('login with accountType', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      mkdirSync.mockReturnValue(undefined);
+      writeFileSync.mockReturnValue(undefined);
+      chmodSync.mockReturnValue(undefined);
+    });
+
+    it('should pass overrideTenant "common" and personalScopes for personal account', async () => {
+      const { deviceCodeFlow } = await import('../../src/auth/device-flow.js');
+      deviceCodeFlow.mockResolvedValue({ accessToken: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJ0aWQiOiI5MTg4MDQwZC02YzY3LTRjNWItYjExMi0zNmEzMDRiNjZkYWQifQ.fake', refreshToken: 'refresh', expiresIn: 3600 });
+
+      await login({ accountType: 'personal' });
+
+      expect(deviceCodeFlow).toHaveBeenCalledWith(
+        expect.objectContaining({
+          overrideTenant: 'common',
+          overrideScopes: expect.any(Array),
+        }),
+      );
+    });
+
+    it('should NOT pass overrideTenant for work account', async () => {
+      const { deviceCodeFlow } = await import('../../src/auth/device-flow.js');
+      deviceCodeFlow.mockResolvedValue({ accessToken: 'eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9.eyJ0aWQiOiJzb21lLXdvcmstdGVuYW50In0.fake', refreshToken: 'refresh', expiresIn: 3600 });
+
+      await login({ accountType: 'work' });
+
+      expect(deviceCodeFlow).toHaveBeenCalledWith({});
+    });
+
+    it('should store accountType in saved credentials', async () => {
+      const { deviceCodeFlow } = await import('../../src/auth/device-flow.js');
+      // Return a JWT token with MSA tenant ID in the payload
+      const msaPayload = Buffer.from(JSON.stringify({ tid: '9188040d-6c67-4c5b-b112-36a304b66dad' })).toString('base64url');
+      const fakeToken = `eyJhbGciOiJSUzI1NiJ9.${msaPayload}.fake`;
+      deviceCodeFlow.mockResolvedValue({ accessToken: fakeToken, refreshToken: 'refresh', expiresIn: 3600 });
+
+      await login({ accountType: 'personal' });
+
+      const savedCreds = JSON.parse(writeFileSync.mock.calls[0][1]);
+      expect(savedCreds.accountType).toBe('personal');
+    });
+
+    it('should detect work account type from JWT', async () => {
+      const { deviceCodeFlow } = await import('../../src/auth/device-flow.js');
+      const workPayload = Buffer.from(JSON.stringify({ tid: 'some-work-tenant-id' })).toString('base64url');
+      const fakeToken = `eyJhbGciOiJSUzI1NiJ9.${workPayload}.fake`;
+      deviceCodeFlow.mockResolvedValue({ accessToken: fakeToken, refreshToken: 'refresh', expiresIn: 3600 });
+
+      await login();
+
+      const savedCreds = JSON.parse(writeFileSync.mock.calls[0][1]);
+      expect(savedCreds.accountType).toBe('work');
+    });
+
+    it('should default to work account when no accountType specified', async () => {
+      const { deviceCodeFlow } = await import('../../src/auth/device-flow.js');
+      deviceCodeFlow.mockResolvedValue({ accessToken: 'token', refreshToken: 'refresh', expiresIn: 3600 });
+
+      await login();
+
+      // No overrideTenant should be provided for default (work) logins
+      expect(deviceCodeFlow).toHaveBeenCalledWith({});
     });
   });
 });

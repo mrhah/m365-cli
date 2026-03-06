@@ -1,101 +1,42 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { existsSync } from 'fs';
-import { resolve } from 'path';
-import { loadCreds, getAccessToken } from '../../src/auth/token-manager.js';
 import graphClient from '../../src/graph/client.js';
 import calendarCommands from '../../src/commands/calendar.js';
+import { getAvailableAccounts, setupAuth, teardownAuth } from './helpers/setup.js';
 
-/**
- * Integration tests for Calendar feature.
- *
- * These tests call the real Microsoft Graph API and require:
- *   1. A dedicated integration credentials file (separate from your daily-use creds)
- *   2. Environment variables pointing to the integration app registration
- *
- * Setup:
- *   export M365_INTEGRATION_CLIENT_ID="<integration-app-client-id>"
- *   export M365_INTEGRATION_TENANT_ID="<integration-app-tenant-id>"
- *   export M365_INTEGRATION_CREDS_PATH="~/.m365-cli/integration-credentials.json"
- *
- * Run:
- *   npx vitest run tests/calendar.integration.test.js
- */
-
-const INTEGRATION_CLIENT_ID = process.env.M365_INTEGRATION_CLIENT_ID;
-const INTEGRATION_TENANT_ID = process.env.M365_INTEGRATION_TENANT_ID;
-const INTEGRATION_CREDS_PATH = process.env.M365_INTEGRATION_CREDS_PATH;
-
-let hasAuth = false;
-let savedEnv = {};
-
-// Track events created during tests for cleanup
-const createdEventIds = [];
-
-beforeAll(async () => {
-  if (!INTEGRATION_CLIENT_ID || !INTEGRATION_TENANT_ID || !INTEGRATION_CREDS_PATH) {
-    console.log(
-      '⏭️  Integration env vars not set — skipping calendar integration tests'
-    );
-    return;
-  }
-
-  const resolvedCredsPath = INTEGRATION_CREDS_PATH.startsWith('~/')
-    ? resolve(process.env.HOME, INTEGRATION_CREDS_PATH.slice(2))
-    : resolve(INTEGRATION_CREDS_PATH);
-
-  if (!existsSync(resolvedCredsPath)) {
-    console.log(
-      `⏭️  Integration credentials file not found at ${resolvedCredsPath} — skipping`
-    );
-    return;
-  }
-
-  savedEnv = {
-    M365_CLIENT_ID: process.env.M365_CLIENT_ID,
-    M365_TENANT_ID: process.env.M365_TENANT_ID,
-    M365_CREDS_PATH: process.env.M365_CREDS_PATH,
-  };
-
-  process.env.M365_CLIENT_ID = INTEGRATION_CLIENT_ID;
-  process.env.M365_TENANT_ID = INTEGRATION_TENANT_ID;
-  process.env.M365_CREDS_PATH = resolvedCredsPath;
-
-  try {
-    const creds = loadCreds();
-    if (!creds || !creds.accessToken) {
-      console.log('⏭️  No valid credentials — skipping calendar integration tests');
-      return;
-    }
-    await getAccessToken();
-    hasAuth = true;
-  } catch (error) {
-    console.log(`⏭️  Auth unavailable (${error.message}) — skipping calendar integration tests`);
-  }
-});
-
-afterAll(async () => {
-  // Clean up any events created during tests
-  if (hasAuth) {
-    for (const eventId of createdEventIds) {
-      try {
-        await graphClient.calendar.delete(eventId);
-      } catch {
-        // Ignore cleanup errors (event may already be deleted)
-      }
-    }
-  }
-
-  // Restore original env vars
-  for (const [key, value] of Object.entries(savedEnv)) {
-    if (value === undefined) {
-      delete process.env[key];
-    } else {
-      process.env[key] = value;
-    }
-  }
-});
+const accounts = getAvailableAccounts();
 
 describe('[Integration] Calendar — Graph API', { timeout: 30000 }, () => {
+  if (accounts.length === 0) {
+    it('requires integration env vars', (ctx) => {
+      console.log('⏭️  Integration env vars not set — skipping calendar integration tests');
+      ctx.skip();
+    });
+    return;
+  }
+
+  describe.each(accounts)('$type account', (account) => {
+    let hasAuth = false;
+    let savedEnv = {};
+    const createdEventIds = [];
+
+    beforeAll(async () => {
+      const result = await setupAuth(account);
+      hasAuth = result.hasAuth;
+      savedEnv = result.savedEnv;
+    });
+
+    afterAll(async () => {
+      if (hasAuth) {
+        for (const eventId of createdEventIds) {
+          try {
+            await graphClient.calendar.delete(eventId);
+          } catch {
+            // Ignore cleanup errors
+          }
+        }
+      }
+      teardownAuth(savedEnv);
+    });
   describe('List events (/me/calendarView)', () => {
     it('should list calendar events for a date range', { retry: 2 }, async (ctx) => {
       if (!hasAuth) return ctx.skip();
@@ -426,5 +367,6 @@ describe('[Integration] Calendar — Graph API', { timeout: 30000 }, () => {
         calendarCommands.delete(created.id, { json: true })
       ).resolves.not.toThrow();
     });
+  });
   });
 });

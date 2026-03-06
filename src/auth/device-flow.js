@@ -10,9 +10,10 @@ import { AuthError, ConsentRequiredError } from '../utils/error.js';
  * Request device code from Microsoft
  * @param {Object} [options]
  * @param {string[]} [options.overrideScopes] - Complete scope list (replaces defaults entirely)
+ * @param {string} [options.overrideTenant] - Tenant ID override (e.g. 'consumers' for personal accounts)
  */
-export async function requestDeviceCode({ overrideScopes } = {}) {
-  const tenantId = config.get('tenantId');
+export async function requestDeviceCode({ overrideScopes, overrideTenant } = {}) {
+  const tenantId = overrideTenant || config.get('tenantId');
   const clientId = config.get('clientId');
   const authUrl = config.get('authUrl');
 
@@ -21,7 +22,7 @@ export async function requestDeviceCode({ overrideScopes } = {}) {
     // Complete replacement — user specified exact scopes via --scopes, --add-scopes, or --exclude
     allScopes = overrideScopes;
   } else {
-    allScopes = config.get('scopes');
+    allScopes = config.get('workScopes');
   }
   const scopes = allScopes.join(' ');
   
@@ -56,9 +57,12 @@ export async function requestDeviceCode({ overrideScopes } = {}) {
 
 /**
  * Poll for access token
+ * @param {string} deviceCode - The device code to poll with
+ * @param {Object} [options]
+ * @param {string} [options.overrideTenant] - Tenant ID override (e.g. 'consumers' for personal accounts)
  */
-export async function pollForToken(deviceCode) {
-  const tenantId = config.get('tenantId');
+export async function pollForToken(deviceCode, { overrideTenant } = {}) {
+  const tenantId = overrideTenant || config.get('tenantId');
   const clientId = config.get('clientId');
   const authUrl = config.get('authUrl');
   
@@ -121,21 +125,24 @@ export async function pollForToken(deviceCode) {
  * Full device code flow
  * @param {Object} [options]
  * @param {string[]} [options.overrideScopes] - Complete scope list (replaces defaults entirely)
+ * @param {string} [options.overrideTenant] - Tenant ID override (e.g. 'consumers' for personal accounts)
  */
-export async function deviceCodeFlow({ overrideScopes } = {}) {
+export async function deviceCodeFlow({ overrideScopes, overrideTenant } = {}) {
   // Step 1: Request device code
   if (overrideScopes) {
     console.log('🔐 Starting authentication with custom scopes...\n');
   } else {
     console.log('🔐 Starting authentication...\n');
   }
-  const deviceCodeData = await requestDeviceCode({ overrideScopes });
+  const deviceCodeData = await requestDeviceCode({ overrideScopes, overrideTenant });
   
   // Step 2: Show user instructions
+  // Always use /devicelogin — the shortened /link URL can reject valid codes
+  const authPageUrl = 'https://microsoft.com/devicelogin';
   console.log('━'.repeat(60));
   console.log('📱 Please authenticate:');
   console.log('');
-  console.log(`   1. Open: ${deviceCodeData.verificationUri}`);
+  console.log(`   1. Open: ${authPageUrl}`);
   console.log(`   2. Enter code: ${deviceCodeData.userCode}`);
   console.log('');
   console.log('━'.repeat(60));
@@ -150,7 +157,7 @@ export async function deviceCodeFlow({ overrideScopes } = {}) {
     await new Promise(resolve => setTimeout(resolve, interval));
     
     try {
-      const result = await pollForToken(deviceCodeData.deviceCode);
+      const result = await pollForToken(deviceCodeData.deviceCode, { overrideTenant });
       
       if (result.success) {
         return {
