@@ -34,9 +34,14 @@ async function getCurrentUserEmail() {
  */
 export async function listMails(options) {
   try {
-    const { top = 10, folder = 'inbox', json = false } = options;
+    const { top = 10, folder = 'inbox', json = false, focused = false } = options;
     
-    const mails = await graphClient.mail.list({ top, folder });
+    const listOptions = { top, folder };
+    if (focused) {
+      listOptions.filter = "inferenceClassification eq 'focused'";
+    }
+    
+    const mails = await graphClient.mail.list(listOptions);
     
     const currentUserEmail = await getCurrentUserEmail();
     

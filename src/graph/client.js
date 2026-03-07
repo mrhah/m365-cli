@@ -194,7 +194,7 @@ class GraphClient {
      * List messages
      */
     list: async (options = {}) => {
-      const { top = 10, folder = 'inbox', select, orderby } = options;
+      const { top = 10, folder = 'inbox', select, orderby, filter } = options;
       
       const queryParams = {
         '$top': top,
@@ -211,7 +211,18 @@ class GraphClient {
       } else {
         queryParams['$orderby'] = 'receivedDateTime desc';
       }
-      
+
+      if (filter) {
+        // Graph API returns InefficientFilter (400) when $filter is combined with
+        // $orderby on a field not present in the filter (e.g. inferenceClassification
+        // filter with receivedDateTime sort). Workaround: prepend a no-op
+        // receivedDateTime condition so the API allows the $orderby.
+        const hasReceivedDateTime = filter.toLowerCase().includes('receiveddatetime');
+        queryParams['$filter'] = hasReceivedDateTime
+          ? filter
+          : `receivedDateTime ge 1900-01-01 AND ${filter}`;
+      }
+
       // Map friendly folder names to Graph API names
       const mappedFolder = this.mail._mapFolderName(folder);
       

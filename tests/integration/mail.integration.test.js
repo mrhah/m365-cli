@@ -80,6 +80,61 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
       });
     });
 
+    describe('List focused inbox emails', () => {
+      it('should list only focused inbox emails via filter', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const mails = await graphClient.mail.list({
+          top: 5,
+          folder: 'inbox',
+          filter: "inferenceClassification eq 'focused'",
+        });
+
+        expect(Array.isArray(mails)).toBe(true);
+
+        for (const mail of mails) {
+          expect(mail).toHaveProperty('id');
+          expect(mail).toHaveProperty('subject');
+          expect(mail).toHaveProperty('receivedDateTime');
+        }
+      });
+
+      it('should return array (possibly empty) for focused filter', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const mails = await graphClient.mail.list({
+          top: 2,
+          folder: 'inbox',
+          filter: "inferenceClassification eq 'focused'",
+        });
+
+        expect(Array.isArray(mails)).toBe(true);
+        expect(mails.length).toBeLessThanOrEqual(2);
+      });
+
+      it('should return focused emails sorted by receivedDateTime descending', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const mails = await graphClient.mail.list({
+          top: 10,
+          folder: 'inbox',
+          filter: "inferenceClassification eq 'focused'",
+        });
+
+        if (mails.length < 2) {
+          console.log('  (fewer than 2 focused emails — cannot verify sort order)');
+          return ctx.skip();
+        }
+
+        // Verify descending order: each receivedDateTime >= the next one
+        for (let i = 0; i < mails.length - 1; i++) {
+          const current = new Date(mails[i].receivedDateTime).getTime();
+          const next = new Date(mails[i + 1].receivedDateTime).getTime();
+          expect(current).toBeGreaterThanOrEqual(next);
+        }
+      });
+    });
+
     describe('Get email (/me/messages/{id})', () => {
       it('should retrieve an email by ID with body and attachments info', async (ctx) => {
         if (!hasAuth) return ctx.skip();
@@ -249,6 +304,14 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
 
         await expect(
           mailCommands.list({ top: 5, folder: 'inbox', json: true })
+        ).resolves.not.toThrow();
+      });
+
+      it('should execute listMails with focused option without throwing', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        await expect(
+          mailCommands.list({ top: 5, folder: 'inbox', focused: true, json: true })
         ).resolves.not.toThrow();
       });
 
