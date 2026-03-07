@@ -71,10 +71,12 @@ mailCommand
   .option('-t, --top <number>', 'Number of emails to list', '10')
   .option('-f, --folder <name>', 'Folder name (inbox, sent, drafts)', 'inbox')
   .option('--json', 'Output as JSON')
+  .option('--focused', 'Show only Focused Inbox emails')
   .action(async (options) => {
     await mailCommands.list({
       top: parseInt(options.top),
       folder: options.folder,
+      focused: options.focused || false,
       json: options.json,
     });
   });

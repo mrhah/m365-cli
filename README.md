@@ -101,6 +101,7 @@ m365 mail list [options]
   --top <n>                         # Number of emails (default: 10)
   --folder <name>                   # Folder to list (default: inbox)
   --json                            # Output as JSON
+  --focused                         # Show only Focused Inbox emails
 
 # Supported folders:
 #   inbox       - Inbox (default)
@@ -677,9 +678,21 @@ m365-cli/
 │       └── trusted-senders.js  # Trusted senders whitelist
 ├── config/
 │   └── default.json         # Default configuration
+├── skills/                 # AI agent skill files
+│   ├── SKILL.md            # Outlook skill (quick reference)
+│   └── references/
+│       └── commands.md     # Full command reference
 ├── package.json             # Project metadata
 ├── README.md                # This file
 ```
+
+## AI Agent Skills
+
+The `skills/` folder contains instruction sets that teach AI coding agents how to use this CLI. Skills provide structured context — commands, conventions, and common patterns — so agents can operate the CLI correctly.
+
+Compatible with [OpenCode](https://github.com/opencode-ai/opencode), [Claude Code](https://docs.anthropic.com/en/docs/build-with-claude/code), [Codex](https://openai.com/index/codex/), [OpenClaw](https://openclaw.ai), and other agent frameworks.
+
+See [`skills/README.md`](skills/README.md) for setup instructions.
 
 ## Development
 
