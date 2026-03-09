@@ -8,12 +8,14 @@ description: >-
   sites/documents, and organizational contacts. Use when: (1) reading, sending, or searching
   work emails, (2) managing calendar events, (3) uploading/downloading OneDrive for Business
   files, (4) browsing SharePoint sites, lists, and document libraries, (5) searching users
-  in the organization. Does NOT trigger for: Azure resource management, Entra ID
+  in the organization, (6) deleting or moving emails, (7) managing mail folders.
+  Does NOT trigger for: Azure resource management, Entra ID
   administration, Intune device management, M365 tenant-level admin (licenses, domains,
   policies), or personal Outlook.com/Hotmail/Live accounts (use the outlook skill instead).
   Triggers: "check my work email", "send an email", "schedule a meeting", "list my calendar",
   "upload to OneDrive", "SharePoint files", "search SharePoint", "sp sites", "m365 work",
-  "corporate email", "work calendar", "organization users".
+  "corporate email", "work calendar", "organization users", "delete email", "move email",
+  "mail folders", "create folder", "organize email".
 ---
 
 # M365 Work Skill (m365-cli)
@@ -33,7 +35,7 @@ If not authenticated, run login first. The CLI uses Device Code Flow — follow 
 ## Key Conventions
 
 - **Use `--json`** for programmatic output (most commands support it; `trust`/`untrust` do not).
-- **Work accounts** support: Mail, Calendar, OneDrive, SharePoint, User search.
+- **Work accounts** support: Mail (including delete, move, and folder management), Calendar, OneDrive, SharePoint, User search.
 - Calendar datetime format: `YYYY-MM-DDTHH:MM:SS` (local) or `YYYY-MM-DD` (all-day).
 - **IDs**: Email/event IDs are long opaque strings. Parse the `id` field from `--json` list/search output.
 - Timezone: auto-detected. Override: `export M365_TIMEZONE="Asia/Shanghai"`.
@@ -49,7 +51,7 @@ If not authenticated, run login first. The CLI uses Device Code Flow — follow 
 
 ### Sensitive Operations
 - **Sending email**: Confirm recipients and content with the user before executing.
-- **Deleting files/events**: Inform the user before executing.
+- **Deleting emails/files/events**: Inform the user before executing.
 - **Sharing files (anonymous scope)**: Warn the user that anyone with the link can access.
 
 ### Credential Safety
@@ -81,10 +83,20 @@ m365 mail read <id> --force --json
 m365 mail send "to@example.com" "Subject" "Body" --json
 m365 mail send "to@example.com" "Subject" "Body" --attach file.pdf --cc "cc@ex.com" --json
 m365 mail search "keyword" --top 20 --json
-
 # Attachments
 m365 mail attachments <message-id> --json
 m365 mail download-attachment <message-id> <attachment-id> [local-path] --json
+
+# Delete / move
+m365 mail delete <id> --force --json
+m365 mail move <id> <destination> --json        # destination: inbox|sent|drafts|deleted|junk|archive or folder ID
+
+# Folder management
+m365 mail folder list --json
+m365 mail folder list --parent inbox --json      # List child folders
+m365 mail folder create "My Projects" --json
+m365 mail folder create "Sub" --parent inbox --json
+m365 mail folder delete <folder-id> --force --json
 
 # Trusted senders whitelist
 m365 mail trusted --json
@@ -196,6 +208,22 @@ m365 mail download-attachment <msg-id> <att-id> ~/Downloads/ --json  # 2. Downlo
 m365 sp sites --json                             # 1. Find site
 m365 sp files "site" "Documents" --json          # 2. Browse files
 m365 sp download "site" "Documents/file.pdf" ~/Downloads/ --json  # 3. Download
+```
+
+### Delete and organize email
+
+```bash
+m365 mail list --top 10 --json                   # 1. Find email
+m365 mail delete <id> --force --json              # 2a. Delete it, OR
+m365 mail move <id> archive --json                # 2b. Move to archive
+```
+
+### Manage mail folders
+
+```bash
+m365 mail folder list --json                      # 1. List all folders
+m365 mail folder create "Projects" --json         # 2. Create custom folder
+m365 mail move <id> <folder-id> --json            # 3. Move email into it
 ```
 
 ## Trusted Senders (Security)

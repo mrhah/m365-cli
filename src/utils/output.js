@@ -858,6 +858,105 @@ export function outputUserSearchResults(results, options = {}) {
   });
 }
 
+/**
+ * Output mail delete result
+ */
+export function outputMailDeleteResult(result, options = {}) {
+  const { json = false } = options;
+  
+  if (json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  
+  console.log('🗑️  Email deleted successfully');
+  if (result.subject) {
+    console.log(`   Subject: ${result.subject}`);
+  }
+  if (result.id) {
+    console.log(`   ID: ${result.id.slice(0, 40)}...`);
+  }
+}
+
+/**
+ * Output mail move result
+ */
+export function outputMailMoveResult(result, options = {}) {
+  const { json = false } = options;
+  
+  if (json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  
+  console.log('📦 Email moved successfully');
+  if (result.subject) {
+    console.log(`   Subject: ${result.subject}`);
+  }
+  if (result.destination) {
+    console.log(`   Destination: ${result.destination}`);
+  }
+  if (result.newId) {
+    console.log(`   New ID: ${result.newId.slice(0, 40)}...`);
+  }
+}
+
+/**
+ * Output mail folder list
+ */
+export function outputMailFolderList(folders, options = {}) {
+  const { json = false } = options;
+  
+  if (json) {
+    console.log(JSON.stringify(folders, null, 2));
+    return;
+  }
+  
+  if (!folders || folders.length === 0) {
+    console.log('📁 No mail folders found.');
+    return;
+  }
+  
+  console.log(`📁 Mail Folders (${folders.length})`);
+  console.log('━'.repeat(60));
+  
+  folders.forEach((folder, index) => {
+    const unread = folder.unreadItemCount > 0 ? ` (${folder.unreadItemCount} unread)` : '';
+    console.log(`[${index + 1}] 📂 ${folder.displayName}${unread}`);
+    console.log(`    Total: ${folder.totalItemCount} | Children: ${folder.childFolderCount}`);
+    console.log(`    ID: ${folder.id}`);
+    console.log('');
+  });
+}
+
+/**
+ * Output mail folder result (create/delete)
+ */
+export function outputMailFolderResult(result, options = {}) {
+  const { json = false } = options;
+  
+  if (json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+  
+  const statusEmoji = {
+    'created': '✅',
+    'deleted': '🗑️',
+  };
+  
+  const emoji = statusEmoji[result.status] || '✅';
+  const action = result.status.charAt(0).toUpperCase() + result.status.slice(1);
+  
+  console.log(`${emoji} Mail folder ${action}`);
+  if (result.displayName) {
+    console.log(`   Name: ${result.displayName}`);
+  }
+  if (result.id) {
+    console.log(`   ID: ${result.id}`);
+  }
+}
+
 export default {
   outputMailList,
   outputMailDetail,
@@ -865,6 +964,10 @@ export default {
   outputAttachmentList,
   outputAttachmentDownload,
   outputSuccess,
+  outputMailDeleteResult,
+  outputMailMoveResult,
+  outputMailFolderList,
+  outputMailFolderResult,
   outputCalendarList,
   outputCalendarDetail,
   outputCalendarResult,

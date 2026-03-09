@@ -385,5 +385,176 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         ).resolves.not.toThrow();
       });
     });
+
+    describe('Mail Folders (list, create, delete)', () => {
+      it('should list mail folders', { retry: 2 }, async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const folders = await graphClient.mail.listFolders({ top: 10 });
+
+        expect(Array.isArray(folders)).toBe(true);
+        expect(folders.length).toBeGreaterThan(0);
+
+        for (const folder of folders) {
+          expect(folder).toHaveProperty('id');
+          expect(folder).toHaveProperty('displayName');
+          expect(folder).toHaveProperty('totalItemCount');
+          expect(folder).toHaveProperty('unreadItemCount');
+        }
+      });
+
+      it('should list child folders of Inbox', { retry: 2 }, async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        // This may return empty if no child folders exist, which is OK
+        const childFolders = await graphClient.mail.listChildFolders('inbox', { top: 10 });
+        expect(Array.isArray(childFolders)).toBe(true);
+      });
+
+      it('should create and delete a mail folder', { retry: 2 }, async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const uniqueName = `test-folder-${Date.now()}`;
+
+        // Create folder
+        const created = await graphClient.mail.createFolder(uniqueName);
+        expect(created).toHaveProperty('id');
+        expect(created.displayName).toBe(uniqueName);
+
+        // Verify it appears in the folder list
+        const folders = await graphClient.mail.listFolders({ top: 100 });
+        const found = folders.find(f => f.id === created.id);
+        expect(found).toBeTruthy();
+
+        // Delete folder (cleanup)
+        const deleted = await graphClient.mail.deleteFolder(created.id);
+        expect(deleted).toHaveProperty('success', true);
+      });
+
+      it('should create a child folder under Inbox', { retry: 2 }, async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const uniqueName = `test-child-folder-${Date.now()}`;
+
+        // Create child folder under Inbox
+        const created = await graphClient.mail.createFolder(uniqueName, 'inbox');
+        expect(created).toHaveProperty('id');
+        expect(created.displayName).toBe(uniqueName);
+
+        // Cleanup
+        try {
+          await graphClient.mail.deleteFolder(created.id);
+        } catch {
+          // Best-effort cleanup
+        }
+      });
+    });
+
+    describe('Mail delete and move', () => {
+      it('should execute deleteMail command without throwing (--json --force)', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        // Send a test email to self, then delete it
+        const user = await graphClient.getCurrentUser();
+        const email = user.mail || user.userPrincipalName;
+        if (!email) return ctx.skip();
+
+        try {
+          await graphClient.mail.send({
+            toRecipients: [{ emailAddress: { address: email } }],
+            subject: `integration-test-delete-${Date.now()}`,
+            body: { contentType: 'Text', content: 'This email will be deleted by integration tests.' },
+          });
+        } catch {
+          return ctx.skip(); // Can't send email, skip test
+        }
+
+        // Wait for email delivery
+        await new Promise(r => setTimeout(r, 5000));
+
+        // Find the test email
+        const mails = await graphClient.mail.list({ top: 5, folder: 'inbox' });
+        const testMail = mails.find(m => m.subject?.startsWith('integration-test-delete-'));
+        if (!testMail) return ctx.skip(); // Email not delivered yet
+
+        // Delete it
+        await expect(
+          mailCommands.delete(testMail.id, { force: true, json: true })
+        ).resolves.not.toThrow();
+      });
+
+      it('should execute moveMail command without throwing (--json)', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        // Send a test email to self, then move it
+        const user = await graphClient.getCurrentUser();
+        const email = user.mail || user.userPrincipalName;
+        if (!email) return ctx.skip();
+
+        try {
+          await graphClient.mail.send({
+            toRecipients: [{ emailAddress: { address: email } }],
+            subject: `integration-test-move-${Date.now()}`,
+            body: { contentType: 'Text', content: 'This email will be moved by integration tests.' },
+          });
+        } catch {
+          return ctx.skip();
+        }
+
+        // Wait for email delivery
+        await new Promise(r => setTimeout(r, 5000));
+
+        // Find the test email
+        const mails = await graphClient.mail.list({ top: 5, folder: 'inbox' });
+        const testMail = mails.find(m => m.subject?.startsWith('integration-test-move-'));
+        if (!testMail) return ctx.skip();
+
+        // Move it to drafts
+        await expect(
+          mailCommands.move(testMail.id, 'drafts', { json: true })
+        ).resolves.not.toThrow();
+
+        // Cleanup: delete from drafts
+        try {
+          const drafts = await graphClient.mail.list({ top: 10, folder: 'drafts' });
+          const movedMail = drafts.find(m => m.subject?.startsWith('integration-test-move-'));
+          if (movedMail) {
+            await graphClient.mail.deleteMessage(movedMail.id);
+          }
+        } catch {
+          // Best-effort cleanup
+        }
+      });
+
+      it('should execute listMailFolders command without throwing (--json)', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        await expect(
+          mailCommands.folderList({ json: true })
+        ).resolves.not.toThrow();
+      });
+
+      it('should execute createMailFolder and deleteMailFolder commands without throwing (--json)', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const uniqueName = `cmd-test-folder-${Date.now()}`;
+
+        // Create
+        await expect(
+          mailCommands.folderCreate(uniqueName, { json: true })
+        ).resolves.not.toThrow();
+
+        // Find the created folder and delete it
+        try {
+          const folders = await graphClient.mail.listFolders({ top: 100 });
+          const created = folders.find(f => f.displayName === uniqueName);
+          if (created) {
+            await mailCommands.folderDelete(created.id, { force: true, json: true });
+          }
+        } catch {
+          // Best-effort cleanup
+        }
+      });
+    });
   });
 });

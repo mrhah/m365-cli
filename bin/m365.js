@@ -182,6 +182,76 @@ mailCommand
     });
   });
 
+mailCommand
+  .command('delete')
+  .description('Delete an email (moves to Deleted Items)')
+  .argument('<id>', 'Message ID to delete')
+  .option('--force', 'Skip confirmation prompt')
+  .option('--json', 'Output as JSON')
+  .action(async (id, options) => {
+    await mailCommands.delete(id, {
+      force: options.force,
+      json: options.json,
+    });
+  });
+
+mailCommand
+  .command('move')
+  .description('Move an email to a different folder')
+  .argument('<id>', 'Message ID to move')
+  .argument('<destination>', 'Destination folder (name or ID)')
+  .option('--json', 'Output as JSON')
+  .action(async (id, destination, options) => {
+    await mailCommands.move(id, destination, {
+      json: options.json,
+    });
+  });
+
+// Mail folder subcommands
+const mailFolderCommand = mailCommand
+  .command('folder')
+  .description('Manage mail folders');
+
+mailFolderCommand
+  .command('list')
+  .description('List mail folders')
+  .option('-t, --top <number>', 'Maximum number of folders', '50')
+  .option('--parent <folder>', 'List child folders of this folder (name or ID)')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    await mailCommands.folderList({
+      top: parseInt(options.top),
+      parent: options.parent,
+      json: options.json,
+    });
+  });
+
+mailFolderCommand
+  .command('create')
+  .description('Create a new mail folder')
+  .argument('<name>', 'Folder name')
+  .option('--parent <folder>', 'Create as child of this folder (name or ID)')
+  .option('--json', 'Output as JSON')
+  .action(async (name, options) => {
+    await mailCommands.folderCreate(name, {
+      parent: options.parent,
+      json: options.json,
+    });
+  });
+
+mailFolderCommand
+  .command('delete')
+  .description('Delete a mail folder and all its contents')
+  .argument('<id>', 'Folder ID to delete')
+  .option('--force', 'Skip confirmation prompt')
+  .option('--json', 'Output as JSON')
+  .action(async (id, options) => {
+    await mailCommands.folderDelete(id, {
+      force: options.force,
+      json: options.json,
+    });
+  });
+
 // Calendar commands
 const calendarCommand = program
   .command('calendar')

@@ -188,6 +188,90 @@ m365 mail trusted [options]
 |--------|-------------|
 | `--json` | JSON output |
 
+### m365 mail delete
+
+Delete an email (moves to Deleted Items).
+
+```
+m365 mail delete <id> [options]
+```
+
+| Argument | Description |
+|----------|-------------|
+| `<id>` | Email ID |
+
+| Option | Description |
+|--------|-------------|
+| `--force` | Skip confirmation prompt |
+| `--json` | JSON output |
+
+### m365 mail move
+
+Move an email to another folder.
+
+```
+m365 mail move <id> <destination> [options]
+```
+
+| Argument | Description |
+|----------|-------------|
+| `<id>` | Email ID |
+| `<destination>` | Folder name (`inbox`, `sent`, `drafts`, `deleted`, `junk`, `archive`) or folder ID |
+
+| Option | Description |
+|--------|-------------|
+| `--json` | JSON output |
+
+**Note**: Moving a message creates a new copy — the returned ID is the new message ID.
+
+### m365 mail folder list
+
+List mail folders.
+
+```
+m365 mail folder list [options]
+```
+
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--top <n>` / `-t <n>` | Max folders | `50` |
+| `--parent <folder>` | List child folders of this folder (name or ID) | — |
+| `--json` | JSON output | — |
+
+### m365 mail folder create
+
+Create a new mail folder.
+
+```
+m365 mail folder create <name> [options]
+```
+
+| Argument | Description |
+|----------|-------------|
+| `<name>` | Display name for the new folder |
+
+| Option | Description |
+|--------|-------------|
+| `--parent <folder>` | Create as child of this folder (name or ID) |
+| `--json` | JSON output |
+
+### m365 mail folder delete
+
+Delete a mail folder and all its contents.
+
+```
+m365 mail folder delete <id> [options]
+```
+
+| Argument | Description |
+|----------|-------------|
+| `<id>` | Folder ID |
+
+| Option | Description |
+|--------|-------------|
+| `--force` | Skip confirmation prompt |
+| `--json` | JSON output |
+
 ---
 
 ## Calendar Commands

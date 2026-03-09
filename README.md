@@ -141,6 +141,31 @@ m365 mail attachments <id> [options]
 # Download attachment
 m365 mail download-attachment <message-id> <attachment-id> [local-path] [options]
   --json                            # Output as JSON
+
+# Delete email
+m365 mail delete <id> [options]
+  --force                           # Skip confirmation prompt
+  --json                            # Output as JSON
+
+# Move email to another folder
+m365 mail move <id> <destination> [options]
+  --json                            # Output as JSON
+# Destination: folder name (inbox, sent, drafts, deleted, junk, archive) or folder ID
+# Note: Moving a message creates a new copy — the returned ID is the new message ID
+
+# Mail folder management
+m365 mail folder list [options]
+  --top <n>                         # Maximum folders (default: 50)
+  --parent <folder>                 # List child folders of this folder
+  --json                            # Output as JSON
+
+m365 mail folder create <name> [options]
+  --parent <folder>                 # Create as child of this folder
+  --json                            # Output as JSON
+
+m365 mail folder delete <id> [options]
+  --force                           # Skip confirmation prompt
+  --json                            # Output as JSON
 ```
 
 **Examples:**
@@ -163,6 +188,18 @@ m365 mail untrust user@example.com       # Remove from whitelist
 m365 mail attachments AAMkADA5ZDE2Njk2...      # List all attachments in an email
 m365 mail download-attachment AAMkADA5... AAMkAGQ...   # Download using attachment's original filename
 m365 mail download-attachment AAMkADA5... AAMkAGQ... ~/Downloads/file.pdf  # Specify output path
+
+# Delete and move emails
+m365 mail delete AAMkADA5ZDE2Njk2... --force
+m365 mail move AAMkADA5ZDE2Njk2... archive
+m365 mail move AAMkADA5ZDE2Njk2... drafts
+
+# Folder management
+m365 mail folder list
+m365 mail folder list --parent inbox
+m365 mail folder create "My Projects"
+m365 mail folder create "Subfolder" --parent inbox
+m365 mail folder delete AAMkAGQ... --force
 ```
 
 ### Security: Trusted Senders Whitelist
