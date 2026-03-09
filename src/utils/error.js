@@ -146,6 +146,9 @@ export function parseGraphError(response, statusCode) {
       'mailboxNotFound': '找不到邮箱。',
       'folderNotFound': '找不到指定的文件夹。',
       'ErrorNonExistentMailbox': '邮箱不存在。',
+      'ErrorCannotDeleteObject': '无法删除此对象。可能是系统文件夹或受保护项目。',
+      'ErrorMoveCopyFailed': '移动或复制邮件失败。请检查目标文件夹是否存在。',
+      'ErrorInvalidRecipients': '无效的收件人。请检查邮件地址格式。',
     };
     
     // Use friendly message if available, otherwise use original

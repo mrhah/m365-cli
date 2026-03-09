@@ -305,6 +305,76 @@ class GraphClient {
     downloadAttachment: async (messageId, attachmentId) => {
       return this.get(`/me/messages/${messageId}/attachments/${attachmentId}`);
     },
+
+    /**
+     * Delete a message (moves to Deleted Items)
+     */
+    deleteMessage: async (id) => {
+      return this.delete(`/me/messages/${id}`);
+    },
+
+    /**
+     * Move a message to a different folder
+     * Returns the message with its new ID in the destination folder
+     */
+    move: async (id, destinationFolderId) => {
+      const mappedFolder = this.mail._mapFolderName(destinationFolderId);
+      return this.post(`/me/messages/${id}/move`, {
+        destinationId: mappedFolder,
+      });
+    },
+
+    /**
+     * List mail folders
+     */
+    listFolders: async (options = {}) => {
+      const { top = 50 } = options;
+      const response = await this.get('/me/mailFolders', {
+        queryParams: {
+          '$top': top.toString(),
+          '$select': 'id,displayName,parentFolderId,childFolderCount,totalItemCount,unreadItemCount',
+        },
+      });
+      return response.value || [];
+    },
+
+    /**
+     * List child folders of a specific folder
+     */
+    listChildFolders: async (folderId, options = {}) => {
+      const { top = 50 } = options;
+      const mappedFolder = this.mail._mapFolderName(folderId);
+      const response = await this.get(`/me/mailFolders/${mappedFolder}/childFolders`, {
+        queryParams: {
+          '$top': top.toString(),
+          '$select': 'id,displayName,parentFolderId,childFolderCount,totalItemCount,unreadItemCount',
+        },
+      });
+      return response.value || [];
+    },
+
+    /**
+     * Create a mail folder
+     * If parentFolderId is provided, creates as a child folder
+     */
+    createFolder: async (displayName, parentFolderId = null) => {
+      if (parentFolderId) {
+        const mappedParent = this.mail._mapFolderName(parentFolderId);
+        return this.post(`/me/mailFolders/${mappedParent}/childFolders`, {
+          displayName,
+        });
+      }
+      return this.post('/me/mailFolders', {
+        displayName,
+      });
+    },
+
+    /**
+     * Delete a mail folder
+     */
+    deleteFolder: async (folderId) => {
+      return this.delete(`/me/mailFolders/${folderId}`);
+    },
   };
   
   /**

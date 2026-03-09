@@ -1,7 +1,7 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { basename } from 'path';
 import graphClient from '../graph/client.js';
-import { outputMailList, outputMailDetail, outputSendResult, outputAttachmentList, outputAttachmentDownload } from '../utils/output.js';
+import { outputMailList, outputMailDetail, outputSendResult, outputAttachmentList, outputAttachmentDownload, outputMailDeleteResult, outputMailMoveResult, outputMailFolderList, outputMailFolderResult } from '../utils/output.js';
 import { handleError } from '../utils/error.js';
 import { isTrustedSender, addTrustedSender, removeTrustedSender, listTrustedSenders, getWhitelistFilePath } from '../utils/trusted-senders.js';
 
@@ -379,6 +379,160 @@ export async function showTrustedSenders(options) {
   }
 }
 
+/**
+ * Delete an email message
+ */
+export async function deleteMail(id, options = {}) {
+  try {
+    const { force = false, json = false } = options;
+    
+    if (!id) {
+      throw new Error('Message ID is required');
+    }
+    
+    // Confirmation prompt (unless --force or --json)
+    if (!force && !json) {
+      const readline = await import('readline');
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+      
+      const answer = await new Promise((resolve) => {
+        rl.question('⚠️  Delete this email? It will be moved to Deleted Items. (y/N): ', resolve);
+      });
+      
+      rl.close();
+      
+      if (answer.toLowerCase() !== 'y' && answer.toLowerCase() !== 'yes') {
+        console.log('Cancelled.');
+        return;
+      }
+    }
+    
+    await graphClient.mail.deleteMessage(id);
+    
+    outputMailDeleteResult({
+      status: 'deleted',
+      id,
+    }, { json });
+  } catch (error) {
+    handleError(error, { json: options.json });
+  }
+}
+
+/**
+ * Move an email to a different folder
+ */
+export async function moveMail(id, destination, options = {}) {
+  try {
+    const { json = false } = options;
+    
+    if (!id) {
+      throw new Error('Message ID is required');
+    }
+    if (!destination) {
+      throw new Error('Destination folder is required');
+    }
+    
+    const result = await graphClient.mail.move(id, destination);
+    
+    outputMailMoveResult({
+      status: 'moved',
+      subject: result.subject,
+      destination,
+      newId: result.id,
+    }, { json });
+  } catch (error) {
+    handleError(error, { json: options.json });
+  }
+}
+
+/**
+ * List mail folders
+ */
+export async function listMailFolders(options = {}) {
+  try {
+    const { top = 50, json = false, parent } = options;
+    
+    let folders;
+    if (parent) {
+      folders = await graphClient.mail.listChildFolders(parent, { top });
+    } else {
+      folders = await graphClient.mail.listFolders({ top });
+    }
+    
+    outputMailFolderList(folders, { json });
+  } catch (error) {
+    handleError(error, { json: options.json });
+  }
+}
+
+/**
+ * Create a mail folder
+ */
+export async function createMailFolder(name, options = {}) {
+  try {
+    const { json = false, parent } = options;
+    
+    if (!name) {
+      throw new Error('Folder name is required');
+    }
+    
+    const folder = await graphClient.mail.createFolder(name, parent || null);
+    
+    outputMailFolderResult({
+      status: 'created',
+      displayName: folder.displayName,
+      id: folder.id,
+    }, { json });
+  } catch (error) {
+    handleError(error, { json: options.json });
+  }
+}
+
+/**
+ * Delete a mail folder
+ */
+export async function deleteMailFolder(folderId, options = {}) {
+  try {
+    const { force = false, json = false } = options;
+    
+    if (!folderId) {
+      throw new Error('Folder ID is required');
+    }
+    
+    // Confirmation prompt (unless --force or --json)
+    if (!force && !json) {
+      const readline = await import('readline');
+      const rl = readline.createInterface({
+        input: process.stdin,
+        output: process.stdout,
+      });
+      
+      const answer = await new Promise((resolve) => {
+        rl.question('⚠️  Delete this mail folder and all its contents? This cannot be undone. (y/N): ', resolve);
+      });
+      
+      rl.close();
+      
+      if (answer.toLowerCase() !== 'y' && answer.toLowerCase() !== 'yes') {
+        console.log('Cancelled.');
+        return;
+      }
+    }
+    
+    await graphClient.mail.deleteFolder(folderId);
+    
+    outputMailFolderResult({
+      status: 'deleted',
+      id: folderId,
+    }, { json });
+  } catch (error) {
+    handleError(error, { json: options.json });
+  }
+}
+
 export default {
   list: listMails,
   read: readMail,
@@ -389,4 +543,9 @@ export default {
   trust: trustSender,
   untrust: untrustSender,
   trusted: showTrustedSenders,
+  delete: deleteMail,
+  move: moveMail,
+  folderList: listMailFolders,
+  folderCreate: createMailFolder,
+  folderDelete: deleteMailFolder,
 };
