@@ -7,10 +7,12 @@ description: >-
   Accesses sensitive data: emails, calendar events, OneDrive files, and contacts.
   Use when: (1) reading, sending, or searching emails,
   (2) managing calendar events (list, create, update, delete), (3) uploading/downloading OneDrive files,
-  (4) searching users/people, (5) any task involving personal Outlook/Hotmail/Live account management
+  (4) searching users/people, (5) deleting or moving emails, (6) managing mail folders,
+  (7) any task involving personal Outlook/Hotmail/Live account management
   from the terminal. Triggers: "check my email", "send an email", "schedule a meeting",
   "list my calendar", "upload to OneDrive", "download from OneDrive", "search mail",
-  "what's on my calendar", "manage Outlook", "m365", "outlook".
+  "what's on my calendar", "manage Outlook", "m365", "outlook", "delete email",
+  "move email", "mail folders", "create folder", "organize email".
 ---
 
 # Outlook Skill (m365-cli)
@@ -29,7 +31,7 @@ If not authenticated, run login first. The CLI uses Device Code Flow — follow 
 ## Key Conventions
 
 - **Use `--json`** for programmatic output (most commands support it; `trust`/`untrust` do not).
-- **Personal accounts** support: Mail, Calendar, OneDrive, User search. **Not** SharePoint.
+- **Personal accounts** support: Mail (including delete, move, and folder management), Calendar, OneDrive, User search. **Not** SharePoint.
 - Calendar datetime format: `YYYY-MM-DDTHH:MM:SS` (local) or `YYYY-MM-DD` (all-day).
 - **IDs**: Email/event IDs are long opaque strings. Parse the `id` field from `--json` list/search output.
 - Timezone: auto-detected. Override: `export M365_TIMEZONE="Asia/Shanghai"`.
@@ -60,6 +62,17 @@ m365 mail search "keyword" --top 20 --json
 # Attachments
 m365 mail attachments <message-id> --json
 m365 mail download-attachment <message-id> <attachment-id> [local-path] --json
+
+# Delete / move
+m365 mail delete <id> --force --json
+m365 mail move <id> <destination> --json        # destination: inbox|sent|drafts|deleted|junk|archive or folder ID
+
+# Folder management
+m365 mail folder list --json
+m365 mail folder list --parent inbox --json      # List child folders
+m365 mail folder create "My Projects" --json
+m365 mail folder create "Sub" --parent inbox --json
+m365 mail folder delete <folder-id> --force --json
 
 # Trusted senders whitelist
 m365 mail trusted --json
@@ -134,6 +147,22 @@ m365 cal create "Meeting" -s "..." -e "..." --json  # 2. Book slot
 ```bash
 m365 mail attachments <msg-id> --json            # 1. List attachments
 m365 mail download-attachment <msg-id> <att-id> ~/Downloads/ --json  # 2. Download
+```
+
+### Delete and organize email
+
+```bash
+m365 mail list --top 10 --json                   # 1. Find email
+m365 mail delete <id> --force --json              # 2a. Delete it, OR
+m365 mail move <id> archive --json                # 2b. Move to archive
+```
+
+### Manage mail folders
+
+```bash
+m365 mail folder list --json                      # 1. List all folders
+m365 mail folder create "Projects" --json         # 2. Create custom folder
+m365 mail move <id> <folder-id> --json            # 3. Move email into it
 ```
 
 ## Trusted Senders (Security)
