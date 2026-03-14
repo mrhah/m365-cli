@@ -138,7 +138,7 @@ export function isTokenExpired(creds) {
 /**
  * Refresh access token using refresh token
  */
-export async function refreshToken(refreshToken) {
+export async function refreshToken(token) {
   const creds = loadCreds();
   const accountType = creds?.accountType || 'work';
   // Personal account tokens are issued by /common, so refresh must use /common too
@@ -158,7 +158,7 @@ export async function refreshToken(refreshToken) {
       body: new URLSearchParams({
         client_id: clientId,
         grant_type: 'refresh_token',
-        refresh_token: refreshToken,
+        refresh_token: token,
         scope: scopes,
       }),
     });
@@ -175,7 +175,7 @@ export async function refreshToken(refreshToken) {
     
     return {
       accessToken: data.access_token,
-      refreshToken: data.refresh_token || refreshToken,
+      refreshToken: data.refresh_token || token,
       expiresIn: data.expires_in || 3600,
     };
   } catch (error) {
