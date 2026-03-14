@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, chmodSync, unlinkSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, chmodSync, unlinkSync, openSync, closeSync, constants as fsConstants, statSync } from 'fs';
 import { dirname, join } from 'path';
 import config from '../utils/config.js';
 import { AuthError, TokenExpiredError } from '../utils/error.js';
@@ -11,6 +11,68 @@ import { deviceCodeFlow } from './device-flow.js';
 
 // Personal Microsoft account tenant ID
 const MSA_TENANT_ID = '9188040d-6c67-4c5b-b112-36a304b66dad';
+
+// Lock file timeout in milliseconds — if a lock is older than this, it's considered stale
+const LOCK_TIMEOUT_MS = 30000;
+const LOCK_RETRY_INTERVAL_MS = 100;
+const LOCK_MAX_WAIT_MS = 10000;
+
+/**
+ * Acquire a file lock for token refresh (cross-process mutex).
+ * Uses O_CREAT|O_EXCL for atomic creation. Returns lock file path on success.
+ * @returns {string|null} Lock file path if acquired, null if another process refreshed token
+ */
+function acquireRefreshLock() {
+  const lockPath = config.getCredsPath() + '.lock';
+  const deadline = Date.now() + LOCK_MAX_WAIT_MS;
+  
+  while (Date.now() < deadline) {
+    try {
+      // O_CREAT | O_EXCL: fails atomically if file already exists
+      const fd = openSync(lockPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY);
+      closeSync(fd);
+      // Write PID + timestamp for stale lock detection
+      writeFileSync(lockPath, JSON.stringify({ pid: process.pid, ts: Date.now() }));
+      return lockPath;
+    } catch (err) {
+      if (err.code !== 'EEXIST') throw err;
+      
+      // Lock exists — check if it's stale
+      try {
+        const stat = statSync(lockPath);
+        if (Date.now() - stat.mtimeMs > LOCK_TIMEOUT_MS) {
+          // Stale lock — remove and retry
+          try { unlinkSync(lockPath); } catch { /* race: another process removed it */ }
+          continue;
+        }
+      } catch {
+        // Lock was removed between our EEXIST and stat — retry immediately
+        continue;
+      }
+      
+      // Lock is fresh — another process is refreshing.
+      // Wait a bit, then check if creds were updated.
+      const sleepMs = Math.min(LOCK_RETRY_INTERVAL_MS, deadline - Date.now());
+      if (sleepMs <= 0) break;
+      // Synchronous sleep (acceptable: CLI process, short duration)
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, sleepMs);
+    }
+  }
+  
+  // Timed out waiting — return null to signal caller should re-read creds
+  return null;
+}
+
+/**
+ * Release the refresh lock
+ */
+function releaseRefreshLock(lockPath) {
+  try {
+    unlinkSync(lockPath);
+  } catch {
+    // Already removed (race condition) — harmless
+  }
+}
 
 /**
  * Detect account type from access token JWT
@@ -138,7 +200,7 @@ export function isTokenExpired(creds) {
 /**
  * Refresh access token using refresh token
  */
-export async function refreshToken(refreshToken) {
+export async function refreshToken(token) {
   const creds = loadCreds();
   const accountType = creds?.accountType || 'work';
   // Personal account tokens are issued by /common, so refresh must use /common too
@@ -158,7 +220,7 @@ export async function refreshToken(refreshToken) {
       body: new URLSearchParams({
         client_id: clientId,
         grant_type: 'refresh_token',
-        refresh_token: refreshToken,
+        refresh_token: token,
         scope: scopes,
       }),
     });
@@ -175,7 +237,7 @@ export async function refreshToken(refreshToken) {
     
     return {
       accessToken: data.access_token,
-      refreshToken: data.refresh_token || refreshToken,
+      refreshToken: data.refresh_token || token,
       expiresIn: data.expires_in || 3600,
     };
   } catch (error) {
@@ -206,7 +268,29 @@ export async function getAccessToken() {
     throw new TokenExpiredError();
   }
   
+  // Acquire file lock to prevent concurrent refresh (critical for MSA personal
+  // accounts where refresh tokens are single-use)
+  const lockPath = acquireRefreshLock();
+  
+  if (!lockPath) {
+    // Another process held the lock and likely refreshed the token.
+    // Re-read credentials — they should now have a fresh access token.
+    const updatedCreds = loadCreds();
+    if (updatedCreds && !isTokenExpired(updatedCreds)) {
+      return updatedCreds.accessToken;
+    }
+    // Still expired after waiting — fall through to attempt refresh anyway
+  }
+  
   try {
+    // Re-check after acquiring lock — another process may have refreshed while we waited
+    if (lockPath) {
+      const freshCreds = loadCreds();
+      if (freshCreds && !isTokenExpired(freshCreds)) {
+        return freshCreds.accessToken;
+      }
+    }
+    
     const refreshed = await refreshToken(creds.refreshToken);
     
     // Save new credentials (preserve grantedScopes)
@@ -224,9 +308,83 @@ export async function getAccessToken() {
     
     return refreshed.accessToken;
   } catch (error) {
-    throw new TokenExpiredError();
+    // Distinguish invalid_grant (refresh token revoked/expired) from other errors
+    const oauthError = error.details?.error;
+    if (oauthError === 'invalid_grant') {
+      throw new TokenExpiredError();
+    }
+    // For network errors, server errors, etc. — propagate the original error
+    // so the caller (and user) can see what actually went wrong
+    if (error instanceof AuthError) {
+      throw error;
+    }
+    throw new AuthError(`Token refresh failed: ${error.message}`);
+  } finally {
+    if (lockPath) {
+      releaseRefreshLock(lockPath);
+    }
   }
 }
+
+/**
+ * Force refresh access token (bypasses local expiry check).
+ * Used by GraphClient to retry after a 401 response.
+ */
+export async function forceRefreshAccessToken() {
+  const creds = loadCreds();
+  
+  if (!creds || !creds.refreshToken) {
+    throw new TokenExpiredError();
+  }
+  
+  const lockPath = acquireRefreshLock();
+  
+  if (!lockPath) {
+    // Another process may have just refreshed — re-read and return
+    const updatedCreds = loadCreds();
+    if (updatedCreds && updatedCreds.accessToken) {
+      return updatedCreds.accessToken;
+    }
+    throw new TokenExpiredError();
+  }
+  
+  try {
+    // Re-check after lock: creds may have been refreshed by another process
+    const freshCreds = loadCreds();
+    if (freshCreds && !isTokenExpired(freshCreds)) {
+      return freshCreds.accessToken;
+    }
+    
+    const tokenToRefresh = freshCreds?.refreshToken || creds.refreshToken;
+    const refreshed = await refreshToken(tokenToRefresh);
+    
+    const newCreds = {
+      tenantId: config.get('tenantId'),
+      clientId: config.get('clientId'),
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken,
+      expiresAt: Math.floor(Date.now() / 1000) + refreshed.expiresIn,
+      grantedScopes: creds.grantedScopes || [],
+      accountType: creds.accountType || 'work',
+    };
+    
+    saveCreds(newCreds);
+    
+    return refreshed.accessToken;
+  } catch (error) {
+    const oauthError = error.details?.error;
+    if (oauthError === 'invalid_grant') {
+      throw new TokenExpiredError();
+    }
+    if (error instanceof AuthError) {
+      throw error;
+    }
+    throw new AuthError(`Token refresh failed: ${error.message}`);
+  } finally {
+    releaseRefreshLock(lockPath);
+  }
+}
+
 
 /**
  * Perform login (device code flow)
@@ -361,6 +519,7 @@ export default {
   isTokenExpired,
   refreshToken,
   getAccessToken,
+  forceRefreshAccessToken,
   getAccountType,
   getDefaultScopes,
   login,

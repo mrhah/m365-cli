@@ -26,6 +26,6 @@
   "credsPath": "~/.m365-cli/credentials.json",
   "deviceCodePollInterval": 5,
   "deviceCodeTimeout": 900,
-  "tokenRefreshBuffer": 60,
+  "tokenRefreshBuffer": 300,
   "timezone": ""
 }

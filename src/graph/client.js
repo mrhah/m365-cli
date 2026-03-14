@@ -1,4 +1,4 @@
-import { getAccessToken } from '../auth/token-manager.js';
+import { getAccessToken, forceRefreshAccessToken } from '../auth/token-manager.js';
 import config from '../utils/config.js';
 import { ApiError, parseGraphError } from '../utils/error.js';
 
@@ -73,6 +73,7 @@ class GraphClient {
       body = null,
       headers = {},
       queryParams = {},
+      _retried = false,
     } = options;
     
     // Get access token (auto-refresh if needed)
@@ -105,6 +106,12 @@ class GraphClient {
     // Make request
     try {
       const response = await fetch(url, requestOptions);
+      
+      // Handle 401: force refresh token and retry once
+      if (response.status === 401 && !_retried) {
+        await forceRefreshAccessToken();
+        return this.request(endpoint, { ...options, _retried: true });
+      }
       
       // Handle empty responses (204, etc.)
       if (response.status === 204) {

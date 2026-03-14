@@ -8,9 +8,10 @@ vi.mock('../../src/utils/config.js', () => ({
         tenantId: 'common',
         clientId: 'test-client-id',
         credsPath: '~/.m365-cli/credentials.json',
-        tokenRefreshBuffer: 60,
+        tokenRefreshBuffer: 300,
         workScopes: ['Mail.Read', 'Files.Read'],
         personalScopes: ['Mail.Read', 'Files.Read'],
+        authUrl: 'https://login.microsoftonline.com',
       };
       return config[key];
     }),
@@ -27,6 +28,12 @@ vi.mock('../../src/utils/error.js', () => ({
       this.details = details;
     }
   },
+  TokenExpiredError: class TokenExpiredError extends Error {
+    constructor() {
+      super('Token expired and refresh failed. Please run: m365 login');
+      this.name = 'TokenExpiredError';
+    }
+  },
 }));
 
 // Mock fs module
@@ -39,6 +46,9 @@ vi.mock('fs', async () => {
     mkdirSync: vi.fn(),
     chmodSync: vi.fn(),
     unlinkSync: vi.fn(),
+    openSync: vi.fn(),
+    closeSync: vi.fn(),
+    statSync: vi.fn(),
   };
 });
 
@@ -47,8 +57,13 @@ vi.mock('../../src/auth/device-flow.js', () => ({
   deviceCodeFlow: vi.fn(),
 }));
 
-import { readFileSync, writeFileSync, mkdirSync, chmodSync, unlinkSync } from 'fs';
-import { isTokenExpired, loadCreds, saveCreds, logout, login, getAccountType, getDefaultScopes } from '../../src/auth/token-manager.js';
+import { readFileSync, writeFileSync, mkdirSync, chmodSync, unlinkSync, openSync, closeSync, statSync } from 'fs';
+import { isTokenExpired, loadCreds, saveCreds, logout, login, getAccountType, getDefaultScopes, getAccessToken, forceRefreshAccessToken } from '../../src/auth/token-manager.js';
+import { AuthError, TokenExpiredError } from '../../src/utils/error.js';
+
+// Mock fetch globally
+const mockFetch = vi.fn();
+vi.stubGlobal('fetch', mockFetch);
 
 describe('Token Manager', () => {
   beforeEach(() => {
@@ -74,15 +89,15 @@ describe('Token Manager', () => {
       expect(isTokenExpired({ expiresAt: pastTime })).toBe(true);
     });
 
-    it('should return true if token expires within buffer (default 60s)', () => {
-      // Set expiresAt to within 30 seconds (less than buffer)
-      const soonTime = Math.floor(Date.now() / 1000) + 30;
+    it('should return true if token expires within buffer (300s)', () => {
+      // Set expiresAt to within 200 seconds (less than 300s buffer)
+      const soonTime = Math.floor(Date.now() / 1000) + 200;
       expect(isTokenExpired({ expiresAt: soonTime })).toBe(true);
     });
 
     it('should return false if token is valid (more than buffer time)', () => {
-      // Set expiresAt to more than 60 seconds from now
-      const futureTime = Math.floor(Date.now() / 1000) + 120;
+      // Set expiresAt to more than 300 seconds from now
+      const futureTime = Math.floor(Date.now() / 1000) + 600;
       expect(isTokenExpired({ expiresAt: futureTime })).toBe(false);
     });
   });
@@ -361,4 +376,194 @@ describe('Token Manager', () => {
       expect(deviceCodeFlow).toHaveBeenCalledWith({});
     });
   });
+
+  describe('getAccessToken — refresh success', () => {
+    /**
+     * Helper to set up expired creds so getAccessToken() will attempt refresh.
+     * openSync succeeds (lock acquired), fetch returns success.
+     */
+    function setupExpiredCredsWithSuccessfulRefresh() {
+      const expiredCreds = {
+        accessToken: 'old-token',
+        refreshToken: 'old-refresh-token',
+        expiresAt: Math.floor(Date.now() / 1000) - 100,
+        accountType: 'work',
+      };
+      readFileSync.mockReturnValue(JSON.stringify(expiredCreds));
+      mkdirSync.mockReturnValue(undefined);
+      writeFileSync.mockReturnValue(undefined);
+      chmodSync.mockReturnValue(undefined);
+      openSync.mockReturnValue(99); // fd
+      closeSync.mockReturnValue(undefined);
+      unlinkSync.mockReturnValue(undefined);
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: () => Promise.resolve({
+          access_token: 'new-access-token',
+          refresh_token: 'new-refresh-token',
+          expires_in: 3600,
+        }),
+      });
+    }
+
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('should return new access token after successful refresh', async () => {
+      setupExpiredCredsWithSuccessfulRefresh();
+
+      const token = await getAccessToken();
+
+      expect(token).toBe('new-access-token');
+      // Verify token was saved
+      expect(writeFileSync).toHaveBeenCalled();
+      const savedCreds = JSON.parse(writeFileSync.mock.calls[writeFileSync.mock.calls.length - 1][1]);
+      expect(savedCreds.accessToken).toBe('new-access-token');
+      expect(savedCreds.refreshToken).toBe('new-refresh-token');
+    });
+  });
+
+  describe('getAccessToken — invalid_grant throws TokenExpiredError', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('should throw TokenExpiredError when refresh returns invalid_grant', async () => {
+      const expiredCreds = {
+        accessToken: 'old-token',
+        refreshToken: 'revoked-refresh-token',
+        expiresAt: Math.floor(Date.now() / 1000) - 100,
+        accountType: 'work',
+      };
+      readFileSync.mockReturnValue(JSON.stringify(expiredCreds));
+      openSync.mockReturnValue(99);
+      closeSync.mockReturnValue(undefined);
+      writeFileSync.mockReturnValue(undefined);
+      unlinkSync.mockReturnValue(undefined);
+
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        json: () => Promise.resolve({
+          error: 'invalid_grant',
+          error_description: 'AADSTS70000: The refresh token has been revoked.',
+        }),
+      });
+
+      await expect(getAccessToken()).rejects.toThrow('Token expired');
+      // Verify it's specifically a TokenExpiredError (name check since mock classes)
+      try {
+        await getAccessToken();
+      } catch (e) {
+        // The first call already consumed the mock — this is a secondary verification
+        // Just check the first rejection was correct (above)
+      }
+    });
+  });
+
+  describe('getAccessToken — network error throws AuthError', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('should throw AuthError (not TokenExpiredError) on network error', async () => {
+      const expiredCreds = {
+        accessToken: 'old-token',
+        refreshToken: 'some-refresh-token',
+        expiresAt: Math.floor(Date.now() / 1000) - 100,
+        accountType: 'work',
+      };
+      readFileSync.mockReturnValue(JSON.stringify(expiredCreds));
+      openSync.mockReturnValue(99);
+      closeSync.mockReturnValue(undefined);
+      writeFileSync.mockReturnValue(undefined);
+      unlinkSync.mockReturnValue(undefined);
+
+      // Simulate network failure (fetch throws TypeError)
+      mockFetch.mockRejectedValueOnce(new TypeError('fetch failed'));
+
+      try {
+        await getAccessToken();
+        expect.unreachable('should have thrown');
+      } catch (e) {
+        expect(e.name).toBe('AuthError');
+        expect(e.message).toContain('fetch failed');
+        // Must NOT be TokenExpiredError
+        expect(e.name).not.toBe('TokenExpiredError');
+      }
+    });
+  });
+
+  describe('getAccessToken — lock contention (second caller reuses refreshed token)', () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it('should return refreshed token without calling fetch when lock times out and creds are fresh', async () => {
+      // Scenario: another process already refreshed the token while we waited for the lock.
+      // acquireRefreshLock() returns null (timed out), so getAccessToken() re-reads creds.
+      const now = Date.now();
+      const nowSec = Math.floor(now / 1000);
+
+      const expiredCreds = {
+        accessToken: 'old-token',
+        refreshToken: 'old-refresh-token',
+        expiresAt: nowSec - 100,
+        accountType: 'work',
+      };
+      const freshCreds = {
+        accessToken: 'already-refreshed-token',
+        refreshToken: 'new-refresh-token',
+        expiresAt: nowSec + 3600,
+        accountType: 'work',
+      };
+
+      // First loadCreds call returns expired (triggers refresh path).
+      // Second loadCreds call (after lock timeout) returns fresh creds.
+      let readCount = 0;
+      readFileSync.mockImplementation(() => {
+        readCount++;
+        if (readCount <= 1) {
+          return JSON.stringify(expiredCreds);
+        }
+        return JSON.stringify(freshCreds);
+      });
+
+      // openSync always throws EEXIST (lock held by another process)
+      openSync.mockImplementation(() => {
+        const err = new Error('EEXIST');
+        err.code = 'EEXIST';
+        throw err;
+      });
+
+      // Make Date.now() jump past the deadline on the second call inside acquireRefreshLock.
+      // First call: sets deadline = now + 10000
+      // Second call (while loop check): return now + 20000 → past deadline → exits loop
+      let dateNowCallCount = 0;
+      const originalDateNow = Date.now;
+      vi.spyOn(Date, 'now').mockImplementation(() => {
+        dateNowCallCount++;
+        // First few calls are normal (isTokenExpired, setting deadline)
+        if (dateNowCallCount <= 3) return now;
+        // After that, jump past deadline so the while loop exits immediately
+        return now + 20000;
+      });
+
+      // statSync returns fresh timestamp (in case it's called before Date.now trips)
+      statSync.mockReturnValue({ mtimeMs: now });
+      unlinkSync.mockReturnValue(undefined);
+
+      const token = await getAccessToken();
+
+      // Should have returned the token from the re-read (not from a fetch refresh)
+      expect(token).toBe('already-refreshed-token');
+      // fetch should NOT have been called — we reused the other process's refresh result
+      expect(mockFetch).not.toHaveBeenCalled();
+
+      // Restore
+      vi.restoreAllMocks();
+    });
+});
+
 });
