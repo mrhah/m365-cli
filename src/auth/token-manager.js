@@ -224,9 +224,20 @@ export async function getAccessToken() {
     
     return refreshed.accessToken;
   } catch (error) {
-    throw new TokenExpiredError();
+    // Distinguish invalid_grant (refresh token revoked/expired) from other errors
+    const oauthError = error.details?.error;
+    if (oauthError === 'invalid_grant') {
+      throw new TokenExpiredError();
+    }
+    // For network errors, server errors, etc. — propagate the original error
+    // so the caller (and user) can see what actually went wrong
+    if (error instanceof AuthError) {
+      throw error;
+    }
+    throw new AuthError(`Token refresh failed: ${error.message}`);
   }
 }
+
 
 /**
  * Perform login (device code flow)
