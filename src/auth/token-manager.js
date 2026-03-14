@@ -326,6 +326,65 @@ export async function getAccessToken() {
   }
 }
 
+/**
+ * Force refresh access token (bypasses local expiry check).
+ * Used by GraphClient to retry after a 401 response.
+ */
+export async function forceRefreshAccessToken() {
+  const creds = loadCreds();
+  
+  if (!creds || !creds.refreshToken) {
+    throw new TokenExpiredError();
+  }
+  
+  const lockPath = acquireRefreshLock();
+  
+  if (!lockPath) {
+    // Another process may have just refreshed — re-read and return
+    const updatedCreds = loadCreds();
+    if (updatedCreds && updatedCreds.accessToken) {
+      return updatedCreds.accessToken;
+    }
+    throw new TokenExpiredError();
+  }
+  
+  try {
+    // Re-check after lock: creds may have been refreshed by another process
+    const freshCreds = loadCreds();
+    if (freshCreds && !isTokenExpired(freshCreds)) {
+      return freshCreds.accessToken;
+    }
+    
+    const tokenToRefresh = freshCreds?.refreshToken || creds.refreshToken;
+    const refreshed = await refreshToken(tokenToRefresh);
+    
+    const newCreds = {
+      tenantId: config.get('tenantId'),
+      clientId: config.get('clientId'),
+      accessToken: refreshed.accessToken,
+      refreshToken: refreshed.refreshToken,
+      expiresAt: Math.floor(Date.now() / 1000) + refreshed.expiresIn,
+      grantedScopes: creds.grantedScopes || [],
+      accountType: creds.accountType || 'work',
+    };
+    
+    saveCreds(newCreds);
+    
+    return refreshed.accessToken;
+  } catch (error) {
+    const oauthError = error.details?.error;
+    if (oauthError === 'invalid_grant') {
+      throw new TokenExpiredError();
+    }
+    if (error instanceof AuthError) {
+      throw error;
+    }
+    throw new AuthError(`Token refresh failed: ${error.message}`);
+  } finally {
+    releaseRefreshLock(lockPath);
+  }
+}
+
 
 /**
  * Perform login (device code flow)
@@ -460,6 +519,7 @@ export default {
   isTokenExpired,
   refreshToken,
   getAccessToken,
+  forceRefreshAccessToken,
   getAccountType,
   getDefaultScopes,
   login,
