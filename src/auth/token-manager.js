@@ -1,4 +1,4 @@
-import { readFileSync, writeFileSync, mkdirSync, chmodSync, unlinkSync } from 'fs';
+import { readFileSync, writeFileSync, mkdirSync, chmodSync, unlinkSync, openSync, closeSync, constants as fsConstants, statSync } from 'fs';
 import { dirname, join } from 'path';
 import config from '../utils/config.js';
 import { AuthError, TokenExpiredError } from '../utils/error.js';
@@ -11,6 +11,68 @@ import { deviceCodeFlow } from './device-flow.js';
 
 // Personal Microsoft account tenant ID
 const MSA_TENANT_ID = '9188040d-6c67-4c5b-b112-36a304b66dad';
+
+// Lock file timeout in milliseconds — if a lock is older than this, it's considered stale
+const LOCK_TIMEOUT_MS = 30000;
+const LOCK_RETRY_INTERVAL_MS = 100;
+const LOCK_MAX_WAIT_MS = 10000;
+
+/**
+ * Acquire a file lock for token refresh (cross-process mutex).
+ * Uses O_CREAT|O_EXCL for atomic creation. Returns lock file path on success.
+ * @returns {string|null} Lock file path if acquired, null if another process refreshed token
+ */
+function acquireRefreshLock() {
+  const lockPath = config.getCredsPath() + '.lock';
+  const deadline = Date.now() + LOCK_MAX_WAIT_MS;
+  
+  while (Date.now() < deadline) {
+    try {
+      // O_CREAT | O_EXCL: fails atomically if file already exists
+      const fd = openSync(lockPath, fsConstants.O_CREAT | fsConstants.O_EXCL | fsConstants.O_WRONLY);
+      closeSync(fd);
+      // Write PID + timestamp for stale lock detection
+      writeFileSync(lockPath, JSON.stringify({ pid: process.pid, ts: Date.now() }));
+      return lockPath;
+    } catch (err) {
+      if (err.code !== 'EEXIST') throw err;
+      
+      // Lock exists — check if it's stale
+      try {
+        const stat = statSync(lockPath);
+        if (Date.now() - stat.mtimeMs > LOCK_TIMEOUT_MS) {
+          // Stale lock — remove and retry
+          try { unlinkSync(lockPath); } catch { /* race: another process removed it */ }
+          continue;
+        }
+      } catch {
+        // Lock was removed between our EEXIST and stat — retry immediately
+        continue;
+      }
+      
+      // Lock is fresh — another process is refreshing.
+      // Wait a bit, then check if creds were updated.
+      const sleepMs = Math.min(LOCK_RETRY_INTERVAL_MS, deadline - Date.now());
+      if (sleepMs <= 0) break;
+      // Synchronous sleep (acceptable: CLI process, short duration)
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, sleepMs);
+    }
+  }
+  
+  // Timed out waiting — return null to signal caller should re-read creds
+  return null;
+}
+
+/**
+ * Release the refresh lock
+ */
+function releaseRefreshLock(lockPath) {
+  try {
+    unlinkSync(lockPath);
+  } catch {
+    // Already removed (race condition) — harmless
+  }
+}
 
 /**
  * Detect account type from access token JWT
@@ -206,7 +268,29 @@ export async function getAccessToken() {
     throw new TokenExpiredError();
   }
   
+  // Acquire file lock to prevent concurrent refresh (critical for MSA personal
+  // accounts where refresh tokens are single-use)
+  const lockPath = acquireRefreshLock();
+  
+  if (!lockPath) {
+    // Another process held the lock and likely refreshed the token.
+    // Re-read credentials — they should now have a fresh access token.
+    const updatedCreds = loadCreds();
+    if (updatedCreds && !isTokenExpired(updatedCreds)) {
+      return updatedCreds.accessToken;
+    }
+    // Still expired after waiting — fall through to attempt refresh anyway
+  }
+  
   try {
+    // Re-check after acquiring lock — another process may have refreshed while we waited
+    if (lockPath) {
+      const freshCreds = loadCreds();
+      if (freshCreds && !isTokenExpired(freshCreds)) {
+        return freshCreds.accessToken;
+      }
+    }
+    
     const refreshed = await refreshToken(creds.refreshToken);
     
     // Save new credentials (preserve grantedScopes)
@@ -235,6 +319,10 @@ export async function getAccessToken() {
       throw error;
     }
     throw new AuthError(`Token refresh failed: ${error.message}`);
+  } finally {
+    if (lockPath) {
+      releaseRefreshLock(lockPath);
+    }
   }
 }
 
