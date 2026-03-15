@@ -18,6 +18,9 @@ description: >-
   "corporate email", "work calendar", "organization users", "delete email", "move email",
   "mail folders", "create folder", "organize email",
   "attach file to email", "send with attachment".
+required-binary: m365
+requires.env: []
+install: npm install -g m365-cli
 ---
 
 # M365 Work Skill (m365-cli)
@@ -42,6 +45,13 @@ If not authenticated, run login first. The CLI uses Device Code Flow — follow 
 - **IDs**: Email/event IDs are long opaque strings. Parse the `id` field from `--json` list/search output.
 - Timezone: auto-detected. Override: `export M365_TIMEZONE="Asia/Shanghai"`.
 - **SharePoint site identifier**: use path format `hostname:/sites/sitename` (recommended).
+
+## Provenance
+
+- Source repo: `https://github.com/mrhah/m365-cli`
+- Package: `https://www.npmjs.com/package/m365-cli`
+- Publisher: `mrhah`
+- Required binary: `m365` from the `m365-cli` npm package
 
 ## Security Rules
 

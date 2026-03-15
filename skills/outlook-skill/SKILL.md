@@ -15,6 +15,9 @@ description: >-
   "what's on my calendar", "manage Outlook", "m365", "outlook", "delete email",
   "move email", "mail folders", "create folder", "organize email",
   "attach file to email", "send with attachment".
+required-binary: m365
+requires.env: []
+install: npm install -g m365-cli
 ---
 
 # Outlook Skill (m365-cli)
@@ -37,6 +40,13 @@ If not authenticated, run login first. The CLI uses Device Code Flow — follow 
 - Calendar datetime format: `YYYY-MM-DDTHH:MM:SS` (local) or `YYYY-MM-DD` (all-day).
 - **IDs**: Email/event IDs are long opaque strings. Parse the `id` field from `--json` list/search output.
 - Timezone: auto-detected. Override: `export M365_TIMEZONE="Asia/Shanghai"`.
+
+## Provenance
+
+- Source repo: `https://github.com/mrhah/m365-cli`
+- Package: `https://www.npmjs.com/package/m365-cli`
+- Publisher: `mrhah`
+- Required binary: `m365` from the `m365-cli` npm package
 
 ## Quick Workflow Reference
 
