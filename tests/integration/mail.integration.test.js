@@ -1,7 +1,12 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { fileURLToPath } from 'url';
+import { dirname, join } from 'path';
 import graphClient from '../../src/graph/client.js';
 import mailCommands from '../../src/commands/mail.js';
 import { getAvailableAccounts, setupAuth, teardownAuth } from './helpers/setup.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const accounts = getAvailableAccounts();
 
@@ -710,6 +715,165 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
 
         expect(forwardedInSent).toBeTruthy();
         expect(forwardedInInbox).toBeTruthy();
+
+        await safeDeleteMessage(seedMail.id);
+        await safeDeleteMessage(forwardedInInbox.id);
+      });
+
+      it('should execute replyMail with attachment and verify delivery', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const user = await graphClient.getCurrentUser();
+        const selfEmail = user.mail || user.userPrincipalName;
+        if (!selfEmail) return ctx.skip();
+
+        const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const seedSubject = `integration-test-reply-attach-seed-${uniqueId}`;
+        const replyContent = `integration-test-reply-attach-body-${uniqueId}`;
+
+        try {
+          await graphClient.mail.send({
+            toRecipients: [{ emailAddress: { address: selfEmail } }],
+            subject: seedSubject,
+            body: { contentType: 'Text', content: 'Seed email for reply-with-attachment integration test.' },
+          });
+        } catch {
+          return ctx.skip();
+        }
+
+        const seedMail = await waitForMail(m => m.subject === seedSubject, 'inbox');
+        if (!seedMail) return ctx.skip();
+
+        const fixturePath = join(__dirname, 'fixtures', 'test-attachment.txt');
+
+        await expect(
+          mailCommands.reply(seedMail.id, replyContent, { json: true, attach: [fixturePath] })
+        ).resolves.not.toThrow();
+
+        const replyInSent = await waitForMail(
+          m => /^(re:)/i.test(m.subject || '') && (m.subject || '').includes(seedSubject),
+          'sent'
+        );
+        const replyInInbox = await waitForMail(
+          m => m.id !== seedMail.id && /^(re:)/i.test(m.subject || '') && (m.subject || '').includes(seedSubject),
+          'inbox'
+        );
+
+        if (!replyInSent || !replyInInbox) return ctx.skip();
+
+        expect(replyInSent).toBeTruthy();
+        expect(replyInInbox).toBeTruthy();
+
+        if (replyInInbox.hasAttachments) {
+          const detail = await graphClient.mail.get(replyInInbox.id);
+          expect(detail.hasAttachments).toBe(true);
+        }
+
+        await safeDeleteMessage(seedMail.id);
+        await safeDeleteMessage(replyInInbox.id);
+      });
+
+      it('should execute replyAllMail with attachment and verify delivery', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const user = await graphClient.getCurrentUser();
+        const selfEmail = user.mail || user.userPrincipalName;
+        if (!selfEmail) return ctx.skip();
+
+        const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const seedSubject = `integration-test-replyall-attach-seed-${uniqueId}`;
+        const replyAllContent = `integration-test-replyall-attach-body-${uniqueId}`;
+
+        try {
+          await graphClient.mail.send({
+            toRecipients: [{ emailAddress: { address: selfEmail } }],
+            subject: seedSubject,
+            body: { contentType: 'Text', content: 'Seed email for reply-all-with-attachment integration test.' },
+          });
+        } catch {
+          return ctx.skip();
+        }
+
+        const seedMail = await waitForMail(m => m.subject === seedSubject, 'inbox');
+        if (!seedMail) return ctx.skip();
+
+        const fixturePath = join(__dirname, 'fixtures', 'test-attachment.txt');
+
+        await expect(
+          mailCommands.replyAll(seedMail.id, replyAllContent, { json: true, attach: [fixturePath] })
+        ).resolves.not.toThrow();
+
+        const replyAllInSent = await waitForMail(
+          m => /^(re:)/i.test(m.subject || '') && (m.subject || '').includes(seedSubject),
+          'sent'
+        );
+        const replyAllInInbox = await waitForMail(
+          m => m.id !== seedMail.id && /^(re:)/i.test(m.subject || '') && (m.subject || '').includes(seedSubject),
+          'inbox'
+        );
+
+        if (!replyAllInSent || !replyAllInInbox) return ctx.skip();
+
+        expect(replyAllInSent).toBeTruthy();
+        expect(replyAllInInbox).toBeTruthy();
+
+        if (replyAllInInbox.hasAttachments) {
+          const detail = await graphClient.mail.get(replyAllInInbox.id);
+          expect(detail.hasAttachments).toBe(true);
+        }
+
+        await safeDeleteMessage(seedMail.id);
+        await safeDeleteMessage(replyAllInInbox.id);
+      });
+
+      it('should execute forwardMail with attachment and verify forwarded delivery', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const user = await graphClient.getCurrentUser();
+        const selfEmail = user.mail || user.userPrincipalName;
+        if (!selfEmail) return ctx.skip();
+
+        const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const seedSubject = `integration-test-forward-attach-seed-${uniqueId}`;
+        const forwardComment = `integration-test-forward-attach-comment-${uniqueId}`;
+
+        try {
+          await graphClient.mail.send({
+            toRecipients: [{ emailAddress: { address: selfEmail } }],
+            subject: seedSubject,
+            body: { contentType: 'Text', content: 'Seed email for forward-with-attachment integration test.' },
+          });
+        } catch {
+          return ctx.skip();
+        }
+
+        const seedMail = await waitForMail(m => m.subject === seedSubject, 'inbox');
+        if (!seedMail) return ctx.skip();
+
+        const fixturePath = join(__dirname, 'fixtures', 'test-attachment.txt');
+
+        await expect(
+          mailCommands.forward(seedMail.id, selfEmail, forwardComment, { json: true, attach: [fixturePath] })
+        ).resolves.not.toThrow();
+
+        const forwardedInSent = await waitForMail(
+          m => /^(fw:|fwd:)/i.test(m.subject || '') && (m.subject || '').includes(seedSubject),
+          'sent'
+        );
+        const forwardedInInbox = await waitForMail(
+          m => m.id !== seedMail.id && /^(fw:|fwd:)/i.test(m.subject || '') && (m.subject || '').includes(seedSubject),
+          'inbox'
+        );
+
+        if (!forwardedInSent || !forwardedInInbox) return ctx.skip();
+
+        expect(forwardedInSent).toBeTruthy();
+        expect(forwardedInInbox).toBeTruthy();
+
+        if (forwardedInInbox.hasAttachments) {
+          const detail = await graphClient.mail.get(forwardedInInbox.id);
+          expect(detail.hasAttachments).toBe(true);
+        }
 
         await safeDeleteMessage(seedMail.id);
         await safeDeleteMessage(forwardedInInbox.id);
