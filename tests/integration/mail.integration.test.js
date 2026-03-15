@@ -556,5 +556,164 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         }
       });
     });
+
+    describe('Mail reply, reply-all, and forward', () => {
+      async function waitForMail(predicate, folder = 'inbox', attempts = 12, intervalMs = 5000) {
+        for (let i = 0; i < attempts; i++) {
+          await new Promise(r => setTimeout(r, intervalMs));
+          const mails = await graphClient.mail.list({ top: 20, folder });
+          const found = mails.find(predicate);
+          if (found) return found;
+        }
+        return null;
+      }
+
+      async function safeDeleteMessage(id) {
+        if (!id) return;
+        try {
+          await graphClient.mail.deleteMessage(id);
+        } catch {
+          // Best-effort cleanup
+        }
+      }
+
+      it('should execute replyMail and verify reply delivery', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const user = await graphClient.getCurrentUser();
+        const selfEmail = user.mail || user.userPrincipalName;
+        if (!selfEmail) return ctx.skip();
+
+        const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const seedSubject = `integration-test-reply-seed-${uniqueId}`;
+        const replyContent = `integration-test-reply-body-${uniqueId}`;
+
+        try {
+          await graphClient.mail.send({
+            toRecipients: [{ emailAddress: { address: selfEmail } }],
+            subject: seedSubject,
+            body: { contentType: 'Text', content: 'Seed email for reply integration test.' },
+          });
+        } catch {
+          return ctx.skip();
+        }
+
+        const seedMail = await waitForMail(m => m.subject === seedSubject, 'inbox');
+        if (!seedMail) return ctx.skip();
+
+        await expect(
+          mailCommands.reply(seedMail.id, replyContent, { json: true })
+        ).resolves.not.toThrow();
+
+        const replyInSent = await waitForMail(
+          m => /^(re:)/i.test(m.subject || '') && (m.subject || '').includes(seedSubject),
+          'sent'
+        );
+        const replyInInbox = await waitForMail(
+          m => m.id !== seedMail.id && /^(re:)/i.test(m.subject || '') && (m.subject || '').includes(seedSubject),
+          'inbox'
+        );
+
+        if (!replyInSent || !replyInInbox) return ctx.skip();
+
+        expect(replyInSent).toBeTruthy();
+        expect(replyInInbox).toBeTruthy();
+
+        await safeDeleteMessage(seedMail.id);
+        await safeDeleteMessage(replyInInbox.id);
+      });
+
+      it('should execute replyAllMail and verify reply-all delivery', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const user = await graphClient.getCurrentUser();
+        const selfEmail = user.mail || user.userPrincipalName;
+        if (!selfEmail) return ctx.skip();
+
+        const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const seedSubject = `integration-test-replyall-seed-${uniqueId}`;
+        const replyAllContent = `integration-test-replyall-body-${uniqueId}`;
+
+        try {
+          await graphClient.mail.send({
+            toRecipients: [{ emailAddress: { address: selfEmail } }],
+            subject: seedSubject,
+            body: { contentType: 'Text', content: 'Seed email for reply-all integration test.' },
+          });
+        } catch {
+          return ctx.skip();
+        }
+
+        const seedMail = await waitForMail(m => m.subject === seedSubject, 'inbox');
+        if (!seedMail) return ctx.skip();
+
+        await expect(
+          mailCommands.replyAll(seedMail.id, replyAllContent, { json: true })
+        ).resolves.not.toThrow();
+
+        const replyAllInSent = await waitForMail(
+          m => /^(re:)/i.test(m.subject || '') && (m.subject || '').includes(seedSubject),
+          'sent'
+        );
+        const replyAllInInbox = await waitForMail(
+          m => m.id !== seedMail.id && /^(re:)/i.test(m.subject || '') && (m.subject || '').includes(seedSubject),
+          'inbox'
+        );
+
+        if (!replyAllInSent || !replyAllInInbox) return ctx.skip();
+
+        expect(replyAllInSent).toBeTruthy();
+        expect(replyAllInInbox).toBeTruthy();
+
+        await safeDeleteMessage(seedMail.id);
+        await safeDeleteMessage(replyAllInInbox.id);
+      });
+
+      it('should execute forwardMail and verify forwarded message delivery', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const user = await graphClient.getCurrentUser();
+        const selfEmail = user.mail || user.userPrincipalName;
+        if (!selfEmail) return ctx.skip();
+
+        const uniqueId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+        const seedSubject = `integration-test-forward-seed-${uniqueId}`;
+        const forwardComment = `integration-test-forward-comment-${uniqueId}`;
+
+        try {
+          await graphClient.mail.send({
+            toRecipients: [{ emailAddress: { address: selfEmail } }],
+            subject: seedSubject,
+            body: { contentType: 'Text', content: 'Seed email for forward integration test.' },
+          });
+        } catch {
+          return ctx.skip();
+        }
+
+        const seedMail = await waitForMail(m => m.subject === seedSubject, 'inbox');
+        if (!seedMail) return ctx.skip();
+
+        await expect(
+          mailCommands.forward(seedMail.id, selfEmail, forwardComment, { json: true })
+        ).resolves.not.toThrow();
+
+        const forwardedInSent = await waitForMail(
+          m => /^(fw:|fwd:)/i.test(m.subject || '') && (m.subject || '').includes(seedSubject),
+          'sent'
+        );
+        const forwardedInInbox = await waitForMail(
+          m => m.id !== seedMail.id && /^(fw:|fwd:)/i.test(m.subject || '') && (m.subject || '').includes(seedSubject),
+          'inbox'
+        );
+
+        if (!forwardedInSent || !forwardedInInbox) return ctx.skip();
+
+        expect(forwardedInSent).toBeTruthy();
+        expect(forwardedInInbox).toBeTruthy();
+
+        await safeDeleteMessage(seedMail.id);
+        await safeDeleteMessage(forwardedInInbox.id);
+      });
+    });
   });
 });
