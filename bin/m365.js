@@ -207,6 +207,49 @@ mailCommand
     });
   });
 
+mailCommand
+  .command('reply')
+  .description('Reply to an email')
+  .argument('<id>', 'Message ID to reply to')
+  .argument('<content>', 'Reply message content')
+  .option('--html', 'Treat content as HTML')
+  .option('--json', 'Output as JSON')
+  .action(async (id, content, options) => {
+    await mailCommands.reply(id, content, {
+      html: options.html || false,
+      json: options.json,
+    });
+  });
+
+mailCommand
+  .command('reply-all')
+  .description('Reply to all recipients of an email')
+  .argument('<id>', 'Message ID to reply to')
+  .argument('<content>', 'Reply message content')
+  .option('--html', 'Treat content as HTML')
+  .option('--json', 'Output as JSON')
+  .action(async (id, content, options) => {
+    await mailCommands.replyAll(id, content, {
+      html: options.html || false,
+      json: options.json,
+    });
+  });
+
+mailCommand
+  .command('forward')
+  .description('Forward an email')
+  .argument('<id>', 'Message ID to forward')
+  .argument('<to>', 'Recipient email(s), comma-separated')
+  .argument('[comment]', 'Optional comment to include')
+  .option('--html', 'Treat comment as HTML')
+  .option('--json', 'Output as JSON')
+  .action(async (id, to, comment, options) => {
+    await mailCommands.forward(id, to, comment || '', {
+      html: options.html || false,
+      json: options.json,
+    });
+  });
+
 // Mail folder subcommands
 const mailFolderCommand = mailCommand
   .command('folder')

@@ -901,6 +901,42 @@ export function outputMailMoveResult(result, options = {}) {
   }
 }
 
+export function outputMailReplyResult(result, options = {}) {
+  const { json = false } = options;
+
+  if (json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  const actionLabel = result.action === 'reply-all' ? 'Reply-all' : 'Reply';
+  console.log('✉️  Reply sent successfully');
+  console.log(`   Action: ${actionLabel}`);
+  if (result.id) {
+    console.log(`   Message ID: ${result.id.slice(0, 40)}...`);
+  }
+}
+
+export function outputMailForwardResult(result, options = {}) {
+  const { json = false } = options;
+
+  if (json) {
+    console.log(JSON.stringify(result, null, 2));
+    return;
+  }
+
+  console.log('↪️  Message forwarded successfully');
+  if (result.to) {
+    console.log(`   To: ${result.to}`);
+  }
+  if (result.recipientCount !== undefined) {
+    console.log(`   Recipients: ${result.recipientCount}`);
+  }
+  if (result.id) {
+    console.log(`   Message ID: ${result.id.slice(0, 40)}...`);
+  }
+}
+
 /**
  * Output mail folder list
  */
@@ -966,6 +1002,8 @@ export default {
   outputSuccess,
   outputMailDeleteResult,
   outputMailMoveResult,
+  outputMailReplyResult,
+  outputMailForwardResult,
   outputMailFolderList,
   outputMailFolderResult,
   outputCalendarList,

@@ -153,6 +153,22 @@ m365 mail move <id> <destination> [options]
 # Destination: folder name (inbox, sent, drafts, deleted, junk, archive) or folder ID
 # Note: Moving a message creates a new copy — the returned ID is the new message ID
 
+# Reply to email
+m365 mail reply <id> <content> [options]
+  --html                            # Treat content as HTML
+  --json                            # Output as JSON
+
+# Reply to all recipients
+m365 mail reply-all <id> <content> [options]
+  --html                            # Treat content as HTML
+  --json                            # Output as JSON
+
+# Forward email
+m365 mail forward <id> <to> [comment] [options]
+  --html                            # Treat comment as HTML
+  --json                            # Output as JSON
+# To: comma-separated recipient emails
+
 # Mail folder management
 m365 mail folder list [options]
   --top <n>                         # Maximum folders (default: 50)
@@ -193,6 +209,13 @@ m365 mail download-attachment AAMkADA5... AAMkAGQ... ~/Downloads/file.pdf  # Spe
 m365 mail delete AAMkADA5ZDE2Njk2... --force
 m365 mail move AAMkADA5ZDE2Njk2... archive
 m365 mail move AAMkADA5ZDE2Njk2... drafts
+
+# Reply and forward emails
+m365 mail reply AAMkADA5ZDE2Njk2... "Thanks for the update"
+m365 mail reply-all AAMkADA5ZDE2Njk2... "Thanks everyone"
+m365 mail reply AAMkADA5ZDE2Njk2... "<p>Thanks</p>" --html
+m365 mail forward AAMkADA5ZDE2Njk2... "alice@example.com,bob@example.com" "FYI"
+m365 mail forward AAMkADA5ZDE2Njk2... "alice@example.com" "<p>Please review</p>" --html
 
 # Folder management
 m365 mail folder list

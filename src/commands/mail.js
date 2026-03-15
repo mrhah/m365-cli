@@ -1,13 +1,26 @@
 import { readFileSync, writeFileSync } from 'fs';
 import { basename } from 'path';
 import graphClient from '../graph/client.js';
-import { outputMailList, outputMailDetail, outputSendResult, outputAttachmentList, outputAttachmentDownload, outputMailDeleteResult, outputMailMoveResult, outputMailFolderList, outputMailFolderResult } from '../utils/output.js';
+import { outputMailList, outputMailDetail, outputSendResult, outputAttachmentList, outputAttachmentDownload, outputMailDeleteResult, outputMailMoveResult, outputMailReplyResult, outputMailForwardResult, outputMailFolderList, outputMailFolderResult } from '../utils/output.js';
 import { handleError } from '../utils/error.js';
 import { isTrustedSender, addTrustedSender, removeTrustedSender, listTrustedSenders, getWhitelistFilePath } from '../utils/trusted-senders.js';
 
 // Cache for current user's email
 let currentUserEmailCache = null;
 let currentUserEmailWarningShown = false;
+
+function parseRecipients(emails) {
+  if (!emails) return [];
+  return emails
+    .split(',')
+    .map(email => email.trim())
+    .filter(email => email)
+    .map(email => ({
+      emailAddress: {
+        address: email,
+      },
+    }));
+}
 
 async function getCurrentUserEmail() {
   if (currentUserEmailCache) return currentUserEmailCache;
@@ -107,20 +120,6 @@ export async function sendMail(to, subject, body, options) {
     if (!to || !subject || !body) {
       throw new Error('To, subject, and body are required');
     }
-    
-    // Helper function to parse comma-separated emails into recipients array
-    const parseRecipients = (emails) => {
-      if (!emails) return [];
-      return emails
-        .split(',')
-        .map(email => email.trim())
-        .filter(email => email)
-        .map(email => ({
-          emailAddress: {
-            address: email,
-          },
-        }));
-    };
     
     // Build message
     const message = {
@@ -448,6 +447,126 @@ export async function moveMail(id, destination, options = {}) {
   }
 }
 
+export async function replyMail(id, content, options = {}) {
+  try {
+    const { json = false, html = false } = options;
+
+    if (!id) {
+      throw new Error('Message ID is required');
+    }
+    if (!content) {
+      throw new Error('Reply content is required');
+    }
+
+    const payload = html
+      ? {
+        message: {
+          body: {
+            contentType: 'HTML',
+            content,
+          },
+        },
+      }
+      : {
+        comment: content,
+      };
+
+    const response = await graphClient.mail.reply(id, payload);
+
+    outputMailReplyResult({
+      ...(response || {}),
+      status: 'sent',
+      action: 'reply',
+      id,
+    }, { json });
+  } catch (error) {
+    handleError(error, { json: options.json });
+  }
+}
+
+export async function replyAllMail(id, content, options = {}) {
+  try {
+    const { json = false, html = false } = options;
+
+    if (!id) {
+      throw new Error('Message ID is required');
+    }
+    if (!content) {
+      throw new Error('Reply content is required');
+    }
+
+    const payload = html
+      ? {
+        message: {
+          body: {
+            contentType: 'HTML',
+            content,
+          },
+        },
+      }
+      : {
+        comment: content,
+      };
+
+    const response = await graphClient.mail.replyAll(id, payload);
+
+    outputMailReplyResult({
+      ...(response || {}),
+      status: 'sent',
+      action: 'reply-all',
+      id,
+    }, { json });
+  } catch (error) {
+    handleError(error, { json: options.json });
+  }
+}
+
+export async function forwardMail(id, to, content, options = {}) {
+  try {
+    const { json = false, html = false } = options;
+
+    if (!id) {
+      throw new Error('Message ID is required');
+    }
+    if (!to) {
+      throw new Error('Recipient email(s) are required');
+    }
+
+    const toRecipients = parseRecipients(to);
+    if (toRecipients.length === 0) {
+      throw new Error('At least one valid recipient email is required');
+    }
+
+    const payload = html
+      ? {
+        message: {
+          body: {
+            contentType: 'HTML',
+            content: content || '',
+          },
+        },
+        toRecipients,
+      }
+      : {
+        comment: content || '',
+        toRecipients,
+      };
+
+    const response = await graphClient.mail.forward(id, payload);
+
+    outputMailForwardResult({
+      ...(response || {}),
+      status: 'sent',
+      action: 'forward',
+      id,
+      to,
+      recipientCount: toRecipients.length,
+    }, { json });
+  } catch (error) {
+    handleError(error, { json: options.json });
+  }
+}
+
 /**
  * List mail folders
  */
@@ -545,6 +664,9 @@ export default {
   trusted: showTrustedSenders,
   delete: deleteMail,
   move: moveMail,
+  reply: replyMail,
+  replyAll: replyAllMail,
+  forward: forwardMail,
   folderList: listMailFolders,
   folderCreate: createMailFolder,
   folderDelete: deleteMailFolder,
