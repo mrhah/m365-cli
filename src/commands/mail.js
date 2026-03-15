@@ -22,6 +22,17 @@ function parseRecipients(emails) {
     }));
 }
 
+function buildFileAttachment(filePath) {
+  const data = readFileSync(filePath);
+  const name = basename(filePath);
+  const contentBytes = data.toString('base64');
+  return {
+    '@odata.type': '#microsoft.graph.fileAttachment',
+    name,
+    contentBytes,
+  };
+}
+
 async function getCurrentUserEmail() {
   if (currentUserEmailCache) return currentUserEmailCache;
   
@@ -449,7 +460,7 @@ export async function moveMail(id, destination, options = {}) {
 
 export async function replyMail(id, content, options = {}) {
   try {
-    const { json = false, html = false } = options;
+    const { json = false, html = false, attach = [] } = options;
 
     if (!id) {
       throw new Error('Message ID is required');
@@ -471,13 +482,27 @@ export async function replyMail(id, content, options = {}) {
         comment: content,
       };
 
-    const response = await graphClient.mail.reply(id, payload);
+    let response;
+
+    if (attach.length === 0) {
+      response = await graphClient.mail.reply(id, payload);
+    } else {
+      const attachments = attach.map(filePath => buildFileAttachment(filePath));
+      const draft = await graphClient.mail.createReply(id, payload);
+
+      for (const attachment of attachments) {
+        await graphClient.mail.addAttachment(draft.id, attachment);
+      }
+
+      response = await graphClient.mail.sendDraft(draft.id);
+    }
 
     outputMailReplyResult({
       ...(response || {}),
       status: 'sent',
       action: 'reply',
       id,
+      ...(attach.length > 0 ? { attachmentCount: attach.length } : {}),
     }, { json });
   } catch (error) {
     handleError(error, { json: options.json });
@@ -486,7 +511,7 @@ export async function replyMail(id, content, options = {}) {
 
 export async function replyAllMail(id, content, options = {}) {
   try {
-    const { json = false, html = false } = options;
+    const { json = false, html = false, attach = [] } = options;
 
     if (!id) {
       throw new Error('Message ID is required');
@@ -508,13 +533,27 @@ export async function replyAllMail(id, content, options = {}) {
         comment: content,
       };
 
-    const response = await graphClient.mail.replyAll(id, payload);
+    let response;
+
+    if (attach.length === 0) {
+      response = await graphClient.mail.replyAll(id, payload);
+    } else {
+      const attachments = attach.map(filePath => buildFileAttachment(filePath));
+      const draft = await graphClient.mail.createReplyAll(id, payload);
+
+      for (const attachment of attachments) {
+        await graphClient.mail.addAttachment(draft.id, attachment);
+      }
+
+      response = await graphClient.mail.sendDraft(draft.id);
+    }
 
     outputMailReplyResult({
       ...(response || {}),
       status: 'sent',
       action: 'reply-all',
       id,
+      ...(attach.length > 0 ? { attachmentCount: attach.length } : {}),
     }, { json });
   } catch (error) {
     handleError(error, { json: options.json });
@@ -523,7 +562,7 @@ export async function replyAllMail(id, content, options = {}) {
 
 export async function forwardMail(id, to, content, options = {}) {
   try {
-    const { json = false, html = false } = options;
+    const { json = false, html = false, attach = [] } = options;
 
     if (!id) {
       throw new Error('Message ID is required');
@@ -552,7 +591,28 @@ export async function forwardMail(id, to, content, options = {}) {
         toRecipients,
       };
 
-    const response = await graphClient.mail.forward(id, payload);
+    let response;
+
+    if (attach.length === 0) {
+      response = await graphClient.mail.forward(id, payload);
+    } else {
+      const attachments = attach.map(filePath => buildFileAttachment(filePath));
+      const draft = await graphClient.mail.createForward(id);
+
+      await graphClient.mail.updateMessage(draft.id, {
+        body: {
+          contentType: html ? 'HTML' : 'Text',
+          content: content || '',
+        },
+        toRecipients,
+      });
+
+      for (const attachment of attachments) {
+        await graphClient.mail.addAttachment(draft.id, attachment);
+      }
+
+      response = await graphClient.mail.sendDraft(draft.id);
+    }
 
     outputMailForwardResult({
       ...(response || {}),
@@ -561,6 +621,7 @@ export async function forwardMail(id, to, content, options = {}) {
       id,
       to,
       recipientCount: toRecipients.length,
+      ...(attach.length > 0 ? { attachmentCount: attach.length } : {}),
     }, { json });
   } catch (error) {
     handleError(error, { json: options.json });

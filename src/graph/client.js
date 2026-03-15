@@ -394,6 +394,30 @@ class GraphClient {
     forward: async (id, payload) => {
       return this.post(`/me/messages/${id}/forward`, payload);
     },
+
+    createReply: async (id, payload) => {
+      return this.post(`/me/messages/${id}/createReply`, payload || {});
+    },
+
+    createReplyAll: async (id, payload) => {
+      return this.post(`/me/messages/${id}/createReplyAll`, payload || {});
+    },
+
+    createForward: async (id, payload) => {
+      return this.post(`/me/messages/${id}/createForward`, payload || {});
+    },
+
+    addAttachment: async (messageId, attachment) => {
+      return this.post(`/me/messages/${messageId}/attachments`, attachment);
+    },
+
+    sendDraft: async (messageId) => {
+      return this.post(`/me/messages/${messageId}/send`, null);
+    },
+
+    updateMessage: async (messageId, patch) => {
+      return this.patch(`/me/messages/${messageId}`, patch);
+    },
   };
   
   /**

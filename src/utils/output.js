@@ -915,6 +915,9 @@ export function outputMailReplyResult(result, options = {}) {
   if (result.id) {
     console.log(`   Message ID: ${result.id.slice(0, 40)}...`);
   }
+  if (result.attachmentCount) {
+    console.log(`   Attachments: ${result.attachmentCount}`);
+  }
 }
 
 export function outputMailForwardResult(result, options = {}) {
@@ -934,6 +937,9 @@ export function outputMailForwardResult(result, options = {}) {
   }
   if (result.id) {
     console.log(`   Message ID: ${result.id.slice(0, 40)}...`);
+  }
+  if (result.attachmentCount) {
+    console.log(`   Attachments: ${result.attachmentCount}`);
   }
 }
 

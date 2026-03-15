@@ -212,10 +212,12 @@ mailCommand
   .description('Reply to an email')
   .argument('<id>', 'Message ID to reply to')
   .argument('<content>', 'Reply message content')
+  .option('-a, --attach <files...>', 'Attach files to the message')
   .option('--html', 'Treat content as HTML')
   .option('--json', 'Output as JSON')
   .action(async (id, content, options) => {
     await mailCommands.reply(id, content, {
+      attach: options.attach || [],
       html: options.html || false,
       json: options.json,
     });
@@ -226,10 +228,12 @@ mailCommand
   .description('Reply to all recipients of an email')
   .argument('<id>', 'Message ID to reply to')
   .argument('<content>', 'Reply message content')
+  .option('-a, --attach <files...>', 'Attach files to the message')
   .option('--html', 'Treat content as HTML')
   .option('--json', 'Output as JSON')
   .action(async (id, content, options) => {
     await mailCommands.replyAll(id, content, {
+      attach: options.attach || [],
       html: options.html || false,
       json: options.json,
     });
@@ -241,10 +245,12 @@ mailCommand
   .argument('<id>', 'Message ID to forward')
   .argument('<to>', 'Recipient email(s), comma-separated')
   .argument('[comment]', 'Optional comment to include')
+  .option('-a, --attach <files...>', 'Attach files to the message')
   .option('--html', 'Treat comment as HTML')
   .option('--json', 'Output as JSON')
   .action(async (id, to, comment, options) => {
     await mailCommands.forward(id, to, comment || '', {
+      attach: options.attach || [],
       html: options.html || false,
       json: options.json,
     });
