@@ -12,10 +12,12 @@ description: >-
   Does NOT trigger for: Azure resource management, Entra ID
   administration, Intune device management, M365 tenant-level admin (licenses, domains,
   policies), or personal Outlook.com/Hotmail/Live accounts (use the outlook skill instead).
-  Triggers: "check my work email", "send an email", "schedule a meeting", "list my calendar",
+  Triggers: "check my work email", "send an email", "reply to email", "reply all",
+  "forward email", "schedule a meeting", "list my calendar",
   "upload to OneDrive", "SharePoint files", "search SharePoint", "sp sites", "m365 work",
   "corporate email", "work calendar", "organization users", "delete email", "move email",
-  "mail folders", "create folder", "organize email".
+  "mail folders", "create folder", "organize email",
+  "attach file to email", "send with attachment".
 ---
 
 # M365 Work Skill (m365-cli)
@@ -83,6 +85,15 @@ m365 mail read <id> --force --json
 m365 mail send "to@example.com" "Subject" "Body" --json
 m365 mail send "to@example.com" "Subject" "Body" --attach file.pdf --cc "cc@ex.com" --json
 m365 mail search "keyword" --top 20 --json
+
+# Reply / reply-all / forward
+m365 mail reply <id> "content" --json
+m365 mail reply <id> "content" --attach file.pdf --json
+m365 mail reply-all <id> "content" --json
+m365 mail reply-all <id> "content" --attach a.pdf b.pdf --json
+m365 mail forward <id> "to@example.com" "comment" --json
+m365 mail forward <id> "to@example.com" "FYI" --attach report.pdf --json
+
 # Attachments
 m365 mail attachments <message-id> --json
 m365 mail download-attachment <message-id> <attachment-id> [local-path] --json
@@ -185,7 +196,19 @@ m365 user search "John" --top 5 --json    # Searches organization directory
 ```bash
 m365 mail list --top 5 --json                    # 1. Find email
 m365 mail read <id> --force --json               # 2. Read content
-m365 mail send "sender@ex.com" "Re: Sub" "Reply" --json  # 3. Reply
+m365 mail reply <id> "Reply content" --json      # 3. Reply
+```
+
+### Reply with attachment
+
+```bash
+m365 mail reply <id> "See attached" --attach report.pdf --json
+```
+
+### Forward with attachment
+
+```bash
+m365 mail forward <id> "boss@example.com" "FYI" --attach data.xlsx --json
 ```
 
 ### Check calendar and schedule

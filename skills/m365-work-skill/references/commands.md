@@ -272,6 +272,63 @@ m365 mail folder delete <id> [options]
 | `--force` | Skip confirmation prompt |
 | `--json` | JSON output |
 
+### m365 mail reply
+
+Reply to an email. When attachments are provided, uses an internal draft-based flow.
+
+```
+m365 mail reply <id> <content> [options]
+```
+
+| Argument | Description |
+|----------|-------------|
+| `<id>` | Message ID to reply to |
+| `<content>` | Reply message content |
+
+| Option | Description |
+|--------|-------------|
+| `--html` | Treat content as HTML |
+| `--attach <files...>` / `-a <files...>` | Attach one or more files |
+| `--json` | JSON output |
+
+### m365 mail reply-all
+
+Reply to all recipients of an email. When attachments are provided, uses an internal draft-based flow.
+
+```
+m365 mail reply-all <id> <content> [options]
+```
+
+| Argument | Description |
+|----------|-------------|
+| `<id>` | Message ID to reply to |
+| `<content>` | Reply-all message content |
+
+| Option | Description |
+|--------|-------------|
+| `--html` | Treat content as HTML |
+| `--attach <files...>` / `-a <files...>` | Attach one or more files |
+| `--json` | JSON output |
+
+### m365 mail forward
+
+Forward an email to one or more recipients. When attachments are provided, uses an internal draft-based flow.
+
+```
+m365 mail forward <id> <to> [comment] [options]
+```
+
+| Argument | Description |
+|----------|-------------|
+| `<id>` | Message ID to forward |
+| `<to>` | Recipient email(s), comma-separated |
+| `[comment]` | Optional comment to include |
+
+| Option | Description |
+|--------|-------------|
+| `--html` | Treat comment as HTML |
+| `--attach <files...>` / `-a <files...>` | Attach one or more files |
+| `--json` | JSON output |
 ---
 
 ## Calendar Commands
