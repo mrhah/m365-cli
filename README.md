@@ -810,16 +810,6 @@ SharePoint requires the `Sites.ReadWrite.All` permission, which is **not** inclu
 - Verify firewall settings
 - Ensure Microsoft Graph API is accessible
 
-## Roadmap
-
-- [x] **Phase 1**: Framework + Mail ✅
-- [x] **Phase 2**: Calendar ✅
-- [x] **Phase 3**: OneDrive ✅
-- [x] **Phase 3.5**: SharePoint ✅
-- [ ] **Phase 4**: Contacts & Advanced Features
-- [ ] **Phase 5**: Optimization & Release
-
-
 ## Security
 
 - Explicit scope management — SharePoint permissions (`Sites.ReadWrite.All`) added via `--add-scopes` when needed, since they require tenant admin approval
@@ -840,5 +830,4 @@ Contributions welcome! Please open an issue or PR.
 ---
 
 **Current Version**: 0.1.0  
-**Status**: Phases 1-3 Complete ✅  
-**Updated**: 2026-02-16
+**Updated**: 2026-03-15
