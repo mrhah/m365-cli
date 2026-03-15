@@ -3,7 +3,7 @@ name: Integration Tests
 on:
   # Run on pushes to main and feature branches
   push:
-    branches: [main, master, 'feature/**']
+    branches: [main, master, 'feature/**', 'feat/**']
   # Run on PRs targeting main
   pull_request:
     branches: [main, master]
