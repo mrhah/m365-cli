@@ -382,6 +382,18 @@ class GraphClient {
     deleteFolder: async (folderId) => {
       return this.delete(`/me/mailFolders/${folderId}`);
     },
+
+    reply: async (id, payload) => {
+      return this.post(`/me/messages/${id}/reply`, payload);
+    },
+
+    replyAll: async (id, payload) => {
+      return this.post(`/me/messages/${id}/replyAll`, payload);
+    },
+
+    forward: async (id, payload) => {
+      return this.post(`/me/messages/${id}/forward`, payload);
+    },
   };
   
   /**
