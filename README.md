@@ -156,16 +156,19 @@ m365 mail move <id> <destination> [options]
 # Reply to email
 m365 mail reply <id> <content> [options]
   --html                            # Treat content as HTML
+  -a, --attach <files...>           # Attach files to the reply
   --json                            # Output as JSON
 
 # Reply to all recipients
 m365 mail reply-all <id> <content> [options]
   --html                            # Treat content as HTML
+  -a, --attach <files...>           # Attach files to the reply
   --json                            # Output as JSON
 
 # Forward email
 m365 mail forward <id> <to> [comment] [options]
   --html                            # Treat comment as HTML
+  -a, --attach <files...>           # Attach files to the forwarded message
   --json                            # Output as JSON
 # To: comma-separated recipient emails
 
@@ -216,6 +219,9 @@ m365 mail reply-all AAMkADA5ZDE2Njk2... "Thanks everyone"
 m365 mail reply AAMkADA5ZDE2Njk2... "<p>Thanks</p>" --html
 m365 mail forward AAMkADA5ZDE2Njk2... "alice@example.com,bob@example.com" "FYI"
 m365 mail forward AAMkADA5ZDE2Njk2... "alice@example.com" "<p>Please review</p>" --html
+m365 mail reply AAMkADA5ZDE2Njk2... "Thanks" --attach report.pdf
+m365 mail reply-all AAMkADA5ZDE2Njk2... "See attached" --attach notes.pdf slides.pptx
+m365 mail forward AAMkADA5ZDE2Njk2... "alice@example.com" "FYI" --attach report.pdf
 
 # Folder management
 m365 mail folder list
