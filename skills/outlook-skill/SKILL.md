@@ -1,20 +1,9 @@
 ---
 name: outlook
 description: >-
-  Manage personal Microsoft 365 (Outlook.com/Hotmail/Live) email, calendar, and OneDrive
-  via the m365-cli command-line tool. Requires: Node.js 18+ and `m365-cli` installed globally
-  (`npm install -g m365-cli`), plus OAuth authentication (`m365 login --account-type personal`).
-  Accesses sensitive data: emails, calendar events, OneDrive files, and contacts.
-  Use when: (1) reading, sending, or searching emails,
-  (2) managing calendar events (list, create, update, delete), (3) uploading/downloading OneDrive files,
-  (4) searching users/people, (5) deleting or moving emails, (6) managing mail folders,
-  (7) any task involving personal Outlook/Hotmail/Live account management
-  Triggers: "check my email", "send an email", "reply to email", "reply all",
-  "forward email", "schedule a meeting",
-  "list my calendar", "upload to OneDrive", "download from OneDrive", "search mail",
-  "what's on my calendar", "manage Outlook", "m365", "outlook", "delete email",
-  "move email", "mail folders", "create folder", "organize email",
-  "attach file to email", "send with attachment".
+  Manage personal Microsoft account (Outlook.com / Hotmail / Live) email, calendar, and OneDrive
+  via the m365-cli command-line tool. Use for personal email/calendar/OneDrive tasks — NOT for
+  work/school accounts (use the m365-work skill) or SharePoint (personal accounts don't support it).
 required-binary: m365
 requires.env: []
 install: npm install -g m365-cli
