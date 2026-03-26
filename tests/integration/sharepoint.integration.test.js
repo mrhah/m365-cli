@@ -8,6 +8,20 @@ const INTEGRATION_SP_SITE = process.env.M365_INTEGRATION_SP_SITE;
 // SharePoint is work-account only
 const accounts = getAvailableAccounts({ workOnly: true });
 
+// Suppress console output during command calls to prevent PII leakage in CI logs
+async function suppressConsole(fn) {
+  const origLog = console.log;
+  const origError = console.error;
+  console.log = () => {};
+  console.error = () => {};
+  try {
+    return await fn();
+  } finally {
+    console.log = origLog;
+    console.error = origError;
+  }
+}
+
 describe('[Integration] SharePoint — Graph API', { timeout: 30000 }, () => {
   if (accounts.length === 0) {
     it('requires integration env vars (work account)', (ctx) => {
@@ -275,7 +289,7 @@ describe('[Integration] SharePoint — Graph API', { timeout: 30000 }, () => {
       if (!hasAuth) return ctx.skip();
 
       try {
-        await sharepointCommands.sites({ top: 5, json: true });
+        await suppressConsole(() => sharepointCommands.sites({ top: 5, json: true }));
       } catch (error) {
         // Skip if insufficient permissions (Sites.Read.All required)
         if (error.message?.includes('process.exit') || error.statusCode === 403) {
@@ -289,7 +303,7 @@ describe('[Integration] SharePoint — Graph API', { timeout: 30000 }, () => {
       if (!hasAuth) return ctx.skip();
 
       try {
-        await sharepointCommands.sites({ search: 'team', top: 5, json: true });
+        await suppressConsole(() => sharepointCommands.sites({ search: 'team', top: 5, json: true }));
       } catch (error) {
         if (error.message?.includes('process.exit') || error.statusCode === 403) {
           return ctx.skip();
@@ -302,7 +316,7 @@ describe('[Integration] SharePoint — Graph API', { timeout: 30000 }, () => {
       if (!hasAuth || !INTEGRATION_SP_SITE) return ctx.skip();
 
       await expect(
-        sharepointCommands.lists(INTEGRATION_SP_SITE, { top: 5, json: true })
+        suppressConsole(() => sharepointCommands.lists(INTEGRATION_SP_SITE, { top: 5, json: true }))
       ).resolves.not.toThrow();
     });
 
@@ -310,7 +324,7 @@ describe('[Integration] SharePoint — Graph API', { timeout: 30000 }, () => {
       if (!hasAuth || !INTEGRATION_SP_SITE) return ctx.skip();
 
       await expect(
-        sharepointCommands.files(INTEGRATION_SP_SITE, '', { top: 5, json: true })
+        suppressConsole(() => sharepointCommands.files(INTEGRATION_SP_SITE, '', { top: 5, json: true }))
       ).resolves.not.toThrow();
     });
 
@@ -318,7 +332,7 @@ describe('[Integration] SharePoint — Graph API', { timeout: 30000 }, () => {
       if (!hasAuth) return ctx.skip();
 
       try {
-        await sharepointCommands.search('report', { top: 5, json: true });
+        await suppressConsole(() => sharepointCommands.search('report', { top: 5, json: true }));
       } catch (error) {
         // Skip if insufficient permissions (Sites.Read.All required for search)
         if (error.message?.includes('process.exit') || error.statusCode === 403) {
@@ -332,7 +346,7 @@ describe('[Integration] SharePoint — Graph API', { timeout: 30000 }, () => {
       if (!hasAuth) return ctx.skip();
 
       try {
-        await sharepointCommands.search('zzxqqnonexistent99integration', { top: 5, json: true });
+        await suppressConsole(() => sharepointCommands.search('zzxqqnonexistent99integration', { top: 5, json: true }));
       } catch (error) {
         if (error.message?.includes('process.exit') || error.statusCode === 403) {
           return ctx.skip();

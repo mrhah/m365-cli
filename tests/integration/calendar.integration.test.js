@@ -5,6 +5,20 @@ import { getAvailableAccounts, setupAuth, teardownAuth } from './helpers/setup.j
 
 const accounts = getAvailableAccounts();
 
+// Suppress console output during command calls to prevent PII leakage in CI logs
+async function suppressConsole(fn) {
+  const origLog = console.log;
+  const origError = console.error;
+  console.log = () => {};
+  console.error = () => {};
+  try {
+    return await fn();
+  } finally {
+    console.log = origLog;
+    console.error = origError;
+  }
+}
+
 describe('[Integration] Calendar — Graph API', { timeout: 30000 }, () => {
   if (accounts.length === 0) {
     it('requires integration env vars', (ctx) => {
@@ -289,7 +303,7 @@ describe('[Integration] Calendar — Graph API', { timeout: 30000 }, () => {
       if (!hasAuth) return ctx.skip();
 
       await expect(
-        calendarCommands.list({ days: 7, top: 5, json: true })
+        suppressConsole(() => calendarCommands.list({ days: 7, top: 5, json: true }))
       ).resolves.not.toThrow();
     });
 
@@ -304,11 +318,11 @@ describe('[Integration] Calendar — Graph API', { timeout: 30000 }, () => {
       // The command function calls handleError on failures, so it won't throw.
       // We just verify it completes.
       await expect(
-        calendarCommands.create('[Integration Test] Command Flow', {
+        suppressConsole(() => calendarCommands.create('[Integration Test] Command Flow', {
           start: startStr,
           end: endStr,
           json: true,
-        })
+        }))
       ).resolves.not.toThrow();
 
       // Clean up: find the event and delete it
@@ -343,7 +357,7 @@ describe('[Integration] Calendar — Graph API', { timeout: 30000 }, () => {
       createdEventIds.push(created.id);
 
       await expect(
-        calendarCommands.get(created.id, { json: true })
+        suppressConsole(() => calendarCommands.get(created.id, { json: true }))
       ).resolves.not.toThrow();
     });
 
@@ -364,7 +378,7 @@ describe('[Integration] Calendar — Graph API', { timeout: 30000 }, () => {
       // Don't push to createdEventIds — we're deleting it here
 
       await expect(
-        calendarCommands.delete(created.id, { json: true })
+        suppressConsole(() => calendarCommands.delete(created.id, { json: true }))
       ).resolves.not.toThrow();
     });
   });

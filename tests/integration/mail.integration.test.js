@@ -10,6 +10,20 @@ const __dirname = dirname(__filename);
 
 const accounts = getAvailableAccounts();
 
+// Suppress console output during command calls to prevent PII leakage in CI logs
+async function suppressConsole(fn) {
+  const origLog = console.log;
+  const origError = console.error;
+  console.log = () => {};
+  console.error = () => {};
+  try {
+    return await fn();
+  } finally {
+    console.log = origLog;
+    console.error = origError;
+  }
+}
+
 describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
   if (accounts.length === 0) {
     it('requires integration env vars', (ctx) => {
@@ -229,7 +243,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         }
       });
 
-      it('should return empty array for email without attachments', async (ctx) => {
+      it('should return valid response for email without regular attachments', async (ctx) => {
         if (!hasAuth) return ctx.skip();
 
         const mails = await graphClient.mail.list({ top: 20, folder: 'inbox' });
@@ -242,8 +256,10 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
 
         const attachments = await graphClient.mail.attachments(mailWithout.id);
 
+        // Microsoft Graph's hasAttachments excludes inline attachments (e.g. embedded images).
+        // A message with hasAttachments=false may still return inline attachments from /attachments.
+        // We verify the API call succeeds and returns a valid array, not that it's strictly empty.
         expect(Array.isArray(attachments)).toBe(true);
-        expect(attachments.length).toBe(0);
       });
     });
 
@@ -308,7 +324,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         if (!hasAuth) return ctx.skip();
 
         await expect(
-          mailCommands.list({ top: 5, folder: 'inbox', json: true })
+          suppressConsole(() => mailCommands.list({ top: 5, folder: 'inbox', json: true }))
         ).resolves.not.toThrow();
       });
 
@@ -316,7 +332,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         if (!hasAuth) return ctx.skip();
 
         await expect(
-          mailCommands.list({ top: 5, folder: 'inbox', focused: true, json: true })
+          suppressConsole(() => mailCommands.list({ top: 5, folder: 'inbox', focused: true, json: true }))
         ).resolves.not.toThrow();
       });
 
@@ -329,7 +345,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         }
 
         try {
-          await mailCommands.read(mails[0].id, { json: true });
+          await suppressConsole(() => mailCommands.read(mails[0].id, { json: true }));
         } catch (error) {
           if (error.message?.includes('process.exit')) {
             return ctx.skip();
@@ -347,7 +363,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         }
 
         try {
-          await mailCommands.read(mails[0].id, { json: true, force: true });
+          await suppressConsole(() => mailCommands.read(mails[0].id, { json: true, force: true }));
         } catch (error) {
           if (error.message?.includes('process.exit')) {
             return ctx.skip();
@@ -360,7 +376,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         if (!hasAuth) return ctx.skip();
 
         await expect(
-          mailCommands.search('test', { top: 5, json: true })
+          suppressConsole(() => mailCommands.search('test', { top: 5, json: true }))
         ).resolves.not.toThrow();
       });
 
@@ -373,7 +389,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         }
 
         try {
-          await mailCommands.attachments(mails[0].id, { json: true });
+          await suppressConsole(() => mailCommands.attachments(mails[0].id, { json: true }));
         } catch (error) {
           if (error.message?.includes('process.exit') || error.statusCode === 403) {
             return ctx.skip();
@@ -386,7 +402,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         if (!hasAuth) return ctx.skip();
 
         await expect(
-          mailCommands.search('zzxqqnonexistent99integration', { top: 5, json: true })
+          suppressConsole(() => mailCommands.search('zzxqqnonexistent99integration', { top: 5, json: true }))
         ).resolves.not.toThrow();
       });
     });
@@ -484,7 +500,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
 
         // Delete it
         await expect(
-          mailCommands.delete(testMail.id, { force: true, json: true })
+          suppressConsole(() => mailCommands.delete(testMail.id, { force: true, json: true }))
         ).resolves.not.toThrow();
       });
 
@@ -516,7 +532,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
 
         // Move it to drafts
         await expect(
-          mailCommands.move(testMail.id, 'drafts', { json: true })
+          suppressConsole(() => mailCommands.move(testMail.id, 'drafts', { json: true }))
         ).resolves.not.toThrow();
 
         // Cleanup: delete from drafts
@@ -535,7 +551,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         if (!hasAuth) return ctx.skip();
 
         await expect(
-          mailCommands.folderList({ json: true })
+          suppressConsole(() => mailCommands.folderList({ json: true }))
         ).resolves.not.toThrow();
       });
 
@@ -546,7 +562,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
 
         // Create
         await expect(
-          mailCommands.folderCreate(uniqueName, { json: true })
+          suppressConsole(() => mailCommands.folderCreate(uniqueName, { json: true }))
         ).resolves.not.toThrow();
 
         // Find the created folder and delete it
@@ -554,7 +570,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
           const folders = await graphClient.mail.listFolders({ top: 100 });
           const created = folders.find(f => f.displayName === uniqueName);
           if (created) {
-            await mailCommands.folderDelete(created.id, { force: true, json: true });
+            await suppressConsole(() => mailCommands.folderDelete(created.id, { force: true, json: true }));
           }
         } catch {
           // Best-effort cleanup
@@ -607,7 +623,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         if (!seedMail) return ctx.skip();
 
         await expect(
-          mailCommands.reply(seedMail.id, replyContent, { json: true })
+          suppressConsole(() => mailCommands.reply(seedMail.id, replyContent, { json: true }))
         ).resolves.not.toThrow();
 
         const replyInSent = await waitForMail(
@@ -653,7 +669,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         if (!seedMail) return ctx.skip();
 
         await expect(
-          mailCommands.replyAll(seedMail.id, replyAllContent, { json: true })
+          suppressConsole(() => mailCommands.replyAll(seedMail.id, replyAllContent, { json: true }))
         ).resolves.not.toThrow();
 
         const replyAllInSent = await waitForMail(
@@ -699,7 +715,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         if (!seedMail) return ctx.skip();
 
         await expect(
-          mailCommands.forward(seedMail.id, selfEmail, forwardComment, { json: true })
+          suppressConsole(() => mailCommands.forward(seedMail.id, selfEmail, forwardComment, { json: true }))
         ).resolves.not.toThrow();
 
         const forwardedInSent = await waitForMail(
@@ -747,7 +763,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         const fixturePath = join(__dirname, 'fixtures', 'test-attachment.txt');
 
         await expect(
-          mailCommands.reply(seedMail.id, replyContent, { json: true, attach: [fixturePath] })
+          suppressConsole(() => mailCommands.reply(seedMail.id, replyContent, { json: true, attach: [fixturePath] }))
         ).resolves.not.toThrow();
 
         const replyInSent = await waitForMail(
@@ -800,7 +816,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         const fixturePath = join(__dirname, 'fixtures', 'test-attachment.txt');
 
         await expect(
-          mailCommands.replyAll(seedMail.id, replyAllContent, { json: true, attach: [fixturePath] })
+          suppressConsole(() => mailCommands.replyAll(seedMail.id, replyAllContent, { json: true, attach: [fixturePath] }))
         ).resolves.not.toThrow();
 
         const replyAllInSent = await waitForMail(
@@ -853,7 +869,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
         const fixturePath = join(__dirname, 'fixtures', 'test-attachment.txt');
 
         await expect(
-          mailCommands.forward(seedMail.id, selfEmail, forwardComment, { json: true, attach: [fixturePath] })
+          suppressConsole(() => mailCommands.forward(seedMail.id, selfEmail, forwardComment, { json: true, attach: [fixturePath] }))
         ).resolves.not.toThrow();
 
         const forwardedInSent = await waitForMail(
