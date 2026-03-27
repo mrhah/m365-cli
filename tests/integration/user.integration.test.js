@@ -5,6 +5,20 @@ import { getAvailableAccounts, setupAuth, teardownAuth } from './helpers/setup.j
 
 const accounts = getAvailableAccounts();
 
+// Suppress console output during command calls to prevent PII leakage in CI logs
+async function suppressConsole(fn) {
+  const origLog = console.log;
+  const origError = console.error;
+  console.log = () => {};
+  console.error = () => {};
+  try {
+    return await fn();
+  } finally {
+    console.log = origLog;
+    console.error = origError;
+  }
+}
+
 describe('[Integration] User search — Graph API', { timeout: 30000 }, () => {
   if (accounts.length === 0) {
     it('requires integration env vars', (ctx) => {
@@ -95,7 +109,7 @@ describe('[Integration] User search — Graph API', { timeout: 30000 }, () => {
         if (!hasAuth) return ctx.skip();
 
         await expect(
-          searchUser('a', { top: 5, json: true })
+          suppressConsole(() => searchUser('a', { top: 5, json: true }))
         ).resolves.not.toThrow();
       });
 
@@ -103,7 +117,7 @@ describe('[Integration] User search — Graph API', { timeout: 30000 }, () => {
         if (!hasAuth) return ctx.skip();
 
         await expect(
-          searchUser('zzxqqnonexistent99', { top: 5, json: true })
+          suppressConsole(() => searchUser('zzxqqnonexistent99', { top: 5, json: true }))
         ).resolves.not.toThrow();
       });
     });

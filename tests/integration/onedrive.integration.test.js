@@ -8,6 +8,20 @@ import { getAvailableAccounts, setupAuth, teardownAuth } from './helpers/setup.j
 
 const accounts = getAvailableAccounts();
 
+// Suppress console output during command calls to prevent PII leakage in CI logs
+async function suppressConsole(fn) {
+  const origLog = console.log;
+  const origError = console.error;
+  console.log = () => {};
+  console.error = () => {};
+  try {
+    return await fn();
+  } finally {
+    console.log = origLog;
+    console.error = origError;
+  }
+}
+
 describe('[Integration] OneDrive — Graph API', { timeout: 30000 }, () => {
   if (accounts.length === 0) {
     it('requires integration env vars', (ctx) => {
@@ -252,7 +266,7 @@ describe('[Integration] OneDrive — Graph API', { timeout: 30000 }, () => {
       if (!hasAuth) return ctx.skip();
 
       await expect(
-        onedriveCommands.ls('', { top: 5, json: true })
+        suppressConsole(() => onedriveCommands.ls('', { top: 5, json: true }))
       ).resolves.not.toThrow();
     });
 
@@ -264,7 +278,7 @@ describe('[Integration] OneDrive — Graph API', { timeout: 30000 }, () => {
       await graphClient.onedrive.upload(remotePath, Buffer.from('cmd test'));
 
       await expect(
-        onedriveCommands.get(remotePath, { json: true })
+        suppressConsole(() => onedriveCommands.get(remotePath, { json: true }))
       ).resolves.not.toThrow();
     });
 
@@ -272,7 +286,7 @@ describe('[Integration] OneDrive — Graph API', { timeout: 30000 }, () => {
       if (!hasAuth) return ctx.skip();
 
       await expect(
-        onedriveCommands.search('test', { top: 5, json: true })
+        suppressConsole(() => onedriveCommands.search('test', { top: 5, json: true }))
       ).resolves.not.toThrow();
     });
 
@@ -287,7 +301,7 @@ describe('[Integration] OneDrive — Graph API', { timeout: 30000 }, () => {
       const remotePath = `${TEST_FOLDER}/cmd-upload-test.txt`;
 
       await expect(
-        onedriveCommands.upload(tmpFile, remotePath, { json: true })
+        suppressConsole(() => onedriveCommands.upload(tmpFile, remotePath, { json: true }))
       ).resolves.not.toThrow();
     });
 
@@ -303,7 +317,7 @@ describe('[Integration] OneDrive — Graph API', { timeout: 30000 }, () => {
       tempFilesToCleanup.push(tmpFile);
 
       await expect(
-        onedriveCommands.download(remotePath, tmpFile, { json: true })
+        suppressConsole(() => onedriveCommands.download(remotePath, tmpFile, { json: true }))
       ).resolves.not.toThrow();
 
       // File may still be flushing (stream-based write); verify via returned result
@@ -315,7 +329,7 @@ describe('[Integration] OneDrive — Graph API', { timeout: 30000 }, () => {
       const subFolder = `${TEST_FOLDER}/cmd-subfolder-${Date.now()}`;
 
       await expect(
-        onedriveCommands.mkdir(subFolder, { json: true })
+        suppressConsole(() => onedriveCommands.mkdir(subFolder, { json: true }))
       ).resolves.not.toThrow();
     });
 
@@ -326,7 +340,7 @@ describe('[Integration] OneDrive — Graph API', { timeout: 30000 }, () => {
       await graphClient.onedrive.upload(remotePath, Buffer.from('to delete'));
 
       await expect(
-        onedriveCommands.rm(remotePath, { json: true, force: true })
+        suppressConsole(() => onedriveCommands.rm(remotePath, { json: true, force: true }))
       ).resolves.not.toThrow();
     });
   });
