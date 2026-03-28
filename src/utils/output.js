@@ -195,7 +195,7 @@ export function outputSendResult(result, options = {}) {
  * Output attachment list
  */
 export function outputAttachmentList(attachments, options = {}) {
-  const { json = false, messageId = '' } = options;
+  const { json = false } = options;
   
   if (json) {
     console.log(JSON.stringify(attachments, null, 2));
@@ -392,6 +392,135 @@ export function outputCalendarResult(result, options = {}) {
   
   if (result.id) {
     console.log(`   ID: ${result.id.slice(0, 40)}...`);
+  }
+}
+
+export function outputAvailability(data, options = {}) {
+  const { json = false, details = false } = options;
+
+  if (json) {
+    console.log(JSON.stringify(data, null, 2));
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    console.log('📅 No availability data found.');
+    return;
+  }
+
+  const statusMap = {
+    '0': 'Free',
+    '1': 'Tentative',
+    '2': 'Busy',
+    '3': 'OOF',
+    '4': 'Working Elsewhere',
+  };
+
+  const toStatus = (char) => statusMap[char] || 'Unknown';
+
+  if (data.length === 1) {
+    const item = data[0];
+    const scheduleId = item.scheduleId || 'Unknown';
+    const view = item.availabilityView || '';
+
+    console.log('📅 Calendar Availability');
+    console.log('━'.repeat(60));
+    console.log(`👤 ${scheduleId}`);
+    console.log('━'.repeat(60));
+
+    if (!view) {
+      console.log('No availability view data.');
+    } else {
+      for (let i = 0; i < view.length; i++) {
+        const slot = String(i + 1).padStart(3, ' ');
+        console.log(`Slot ${slot}: ${toStatus(view[i])}`);
+      }
+    }
+
+    if (details && item.scheduleItems && item.scheduleItems.length > 0) {
+      console.log('');
+      console.log('📝 Schedule Items');
+      console.log('━'.repeat(60));
+      item.scheduleItems.forEach((entry, index) => {
+        const start = entry.start?.dateTime ? formatDate(entry.start.dateTime) : 'N/A';
+        const end = entry.end?.dateTime ? formatDate(entry.end.dateTime) : 'N/A';
+        const status = entry.status || 'unknown';
+        const subject = entry.subject || '(No subject)';
+        const location = entry.location || '';
+
+        console.log(`[${index + 1}] ${start} → ${end}`);
+        console.log(`    Status: ${status}`);
+        console.log(`    Subject: ${subject}`);
+        if (location) {
+          console.log(`    Location: ${location}`);
+        }
+        console.log('');
+      });
+    }
+
+    return;
+  }
+
+  const users = data.map(item => item.scheduleId || 'Unknown');
+  const views = data.map(item => item.availabilityView || '');
+  const rowCount = Math.max(...views.map(v => v.length), 0);
+
+  console.log('📅 Calendar Availability');
+  console.log('━'.repeat(60));
+
+  const userColumnWidth = Math.min(
+    Math.max(...users.map(user => user.length), 'Working Elsewhere'.length, 12),
+    24
+  );
+
+  const formatUser = (user) => {
+    const value = user.length > userColumnWidth ? `${user.slice(0, userColumnWidth - 3)}...` : user;
+    return value.padEnd(userColumnWidth, ' ');
+  };
+
+  const slotHeader = 'Slot'.padEnd(8, ' ');
+  const userHeader = users.map(user => formatUser(user)).join(' | ');
+  console.log(`${slotHeader} | ${userHeader}`);
+  console.log('━'.repeat(Math.max(60, 11 + userHeader.length)));
+
+  for (let row = 0; row < rowCount; row++) {
+    const slot = String(row + 1).padEnd(8, ' ');
+    const statuses = views.map(view => {
+      const status = toStatus(view[row] || '0');
+      return formatUser(status);
+    }).join(' | ');
+    console.log(`${slot} | ${statuses}`);
+  }
+
+  if (details) {
+    console.log('');
+    console.log('📝 Schedule Items');
+    console.log('━'.repeat(60));
+    data.forEach((item) => {
+      const scheduleId = item.scheduleId || 'Unknown';
+      console.log(`👤 ${scheduleId}`);
+      if (!item.scheduleItems || item.scheduleItems.length === 0) {
+        console.log('    No schedule items.');
+        console.log('');
+        return;
+      }
+
+      item.scheduleItems.forEach((entry, index) => {
+        const start = entry.start?.dateTime ? formatDate(entry.start.dateTime) : 'N/A';
+        const end = entry.end?.dateTime ? formatDate(entry.end.dateTime) : 'N/A';
+        const status = entry.status || 'unknown';
+        const subject = entry.subject || '(No subject)';
+        const location = entry.location || '';
+
+        console.log(`  [${index + 1}] ${start} → ${end}`);
+        console.log(`      Status: ${status}`);
+        console.log(`      Subject: ${subject}`);
+        if (location) {
+          console.log(`      Location: ${location}`);
+        }
+      });
+      console.log('');
+    });
   }
 }
 
@@ -1015,6 +1144,7 @@ export default {
   outputCalendarList,
   outputCalendarDetail,
   outputCalendarResult,
+  outputAvailability,
   outputOneDriveList,
   outputOneDriveDetail,
   outputOneDriveResult,

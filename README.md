@@ -303,6 +303,16 @@ m365 calendar update <id> [options]
 # Delete event
 m365 calendar delete <id> [options]
   --json                            # Output as JSON
+
+# Query free/busy availability
+m365 calendar availability get [options]
+  --users <emails>                  # User email(s), comma-separated (required)
+  --startDateTime <datetime>        # Start time, ISO 8601 (required)
+  --endDateTime <datetime>          # End time, ISO 8601 (required)
+  --interval <minutes>              # Slot interval in minutes (default: 30)
+  --timezone <tz>                   # Timezone override
+  --details                         # Include detailed schedule items
+  --json                            # Output as JSON
 ```
 
 **Datetime formats:**
@@ -671,6 +681,7 @@ The application requests the following Microsoft Graph permissions at login:
 - `Mail.ReadWrite` - Read and write mail
 - `Mail.Send` - Send mail
 - `Calendars.ReadWrite` - Read and write calendar events
+- `Calendars.Read` - Read calendar availability/free-busy data
 - `MailboxSettings.Read` - Read user mailbox settings (timezone auto-detection)
 - `Files.ReadWrite` - Read and write files in OneDrive
 - `User.Read` - Sign in and read user profile
