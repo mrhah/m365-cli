@@ -309,10 +309,10 @@ m365 calendar availability get [options]
   --users <emails>                  # User email(s), comma-separated (required)
   --startDateTime <datetime>        # Start time, ISO 8601 (required)
   --endDateTime <datetime>          # End time, ISO 8601 (required)
-  --interval <minutes>              # Slot interval in minutes (default: 30)
-  --timezone <tz>                   # Timezone override
+  --interval <minutes>              # Time slot interval in minutes (default: 30)
+  --timezone <tz>                   # Timezone override used for schedule interpretation
   --details                         # Include detailed schedule items
-  --json                            # Output as JSON
+  --json                            # Output as JSON with slots/segments/freeSegments
 ```
 
 **Datetime formats:**
@@ -327,6 +327,8 @@ m365 cal create "Team Meeting" --start "2026-02-17T14:00:00" --end "2026-02-17T1
 m365 cal create "Holiday" --start "2026-02-20" --end "2026-02-21" --allday
 m365 cal update AAMkADA5... --location "Room B"
 m365 cal delete AAMkADA5...
+m365 cal availability get --users "alice@contoso.com,bob@contoso.com" \
+  --startDateTime "2026-04-01T09:00:00" --endDateTime "2026-04-01T18:00:00" --json
 ```
 
 ### OneDrive Commands
@@ -680,8 +682,7 @@ You should see the Device Code Flow prompt. Follow the authentication steps in y
 The application requests the following Microsoft Graph permissions at login:
 - `Mail.ReadWrite` - Read and write mail
 - `Mail.Send` - Send mail
-- `Calendars.ReadWrite` - Read and write calendar events
-- `Calendars.Read` - Read calendar availability/free-busy data
+- `Calendars.ReadWrite` - Read and write calendar events and query calendar availability/free-busy data
 - `MailboxSettings.Read` - Read user mailbox settings (timezone auto-detection)
 - `Files.ReadWrite` - Read and write files in OneDrive
 - `User.Read` - Sign in and read user profile
@@ -729,6 +730,33 @@ Structured output for scripting and AI consumption:
   }
 ]
 ```
+
+For `m365 calendar availability get --json`, the output also includes agent-friendly derived time ranges:
+
+```json
+[
+  {
+    "scheduleId": "alice@contoso.com",
+    "startDateTime": "2026-04-01T09:00:00",
+    "endDateTime": "2026-04-01T12:00:00",
+    "timeZone": "China Standard Time",
+    "intervalMinutes": 30,
+    "availabilityView": "002211",
+    "slots": [
+      { "start": "2026-04-01T09:00:00", "end": "2026-04-01T09:30:00", "status": "free" },
+      { "start": "2026-04-01T09:30:00", "end": "2026-04-01T10:00:00", "status": "free" }
+    ],
+    "segments": [
+      { "start": "2026-04-01T09:00:00", "end": "2026-04-01T10:00:00", "status": "free", "durationMinutes": 60 }
+    ],
+    "freeSegments": [
+      { "start": "2026-04-01T09:00:00", "end": "2026-04-01T10:00:00", "durationMinutes": 60 }
+    ]
+  }
+]
+```
+
+This makes the availability command easier for agents and scripts to consume directly, without decoding slot numbers manually.
 
 ## Project Structure
 
