@@ -52,9 +52,9 @@ program
 program
   .command('logout')
   .description('Clear stored credentials')
-  .action(async () => {
+  .action(() => {
     try {
-      await logout();
+      logout();
     } catch (error) {
       handleError(error);
     }
@@ -384,6 +384,32 @@ calendarCommand
   .action(async (id, options) => {
     await calendarCommands.delete(id, {
       json: options.json,
+    });
+  });
+
+const calendarAvailabilityCommand = calendarCommand
+  .command('availability')
+  .description('Calendar availability / free-busy queries');
+
+calendarAvailabilityCommand
+  .command('get')
+  .description('Query free/busy availability for users')
+  .requiredOption('--users <emails>', 'User email(s), comma-separated')
+  .requiredOption('--startDateTime <datetime>', 'Start time (ISO 8601)')
+  .requiredOption('--endDateTime <datetime>', 'End time (ISO 8601)')
+  .option('--interval <minutes>', 'Time slot interval in minutes', '30')
+  .option('--timezone <tz>', 'Timezone override')
+  .option('--details', 'Show detailed schedule items')
+  .option('--json', 'Output as JSON')
+  .action(async (options) => {
+    await calendarCommands.availability({
+      users: options.users,
+      startDateTime: options.startDateTime,
+      endDateTime: options.endDateTime,
+      interval: parseInt(options.interval),
+      timezone: options.timezone,
+      details: options.details || false,
+      json: options.json || false,
     });
   });
 

@@ -1,3 +1,5 @@
+import { mapStatus } from './availability.js';
+
 /**
  * Output formatting utilities
  */
@@ -195,7 +197,7 @@ export function outputSendResult(result, options = {}) {
  * Output attachment list
  */
 export function outputAttachmentList(attachments, options = {}) {
-  const { json = false, messageId = '' } = options;
+  const { json = false } = options;
   
   if (json) {
     console.log(JSON.stringify(attachments, null, 2));
@@ -392,6 +394,245 @@ export function outputCalendarResult(result, options = {}) {
   
   if (result.id) {
     console.log(`   ID: ${result.id.slice(0, 40)}...`);
+  }
+}
+
+export function outputAvailability(data, options = {}) {
+  const { json = false, details = false } = options;
+
+  if (json) {
+    console.log(JSON.stringify(data, null, 2));
+    return;
+  }
+
+  if (!data || data.length === 0) {
+    console.log('📅 No availability data found.');
+    return;
+  }
+
+  const displayStatus = (status) => {
+    const normalized = (status || '').toString();
+    if (normalized === 'oof') return 'OOF';
+    if (normalized === 'workingElsewhere') return 'Working Elsewhere';
+    if (normalized === 'tentative') return 'Tentative';
+    if (normalized === 'busy') return 'Busy';
+    if (normalized === 'free') return 'Free';
+    return 'Unknown';
+  };
+
+  const splitDateTime = (value) => {
+    const base = (value || '').slice(0, 19);
+    const [datePart = '', timePart = ''] = base.split('T');
+    const hhmm = timePart.slice(0, 5);
+    return { datePart, hhmm };
+  };
+
+  const formatFullLocal = (value) => {
+    const { datePart, hhmm } = splitDateTime(value);
+    if (!datePart || !hhmm) {
+      return 'N/A';
+    }
+    return `${datePart} ${hhmm}`;
+  };
+
+  const formatTimeRangeLabel = (start, end) => {
+    const startParts = splitDateTime(start);
+    const endParts = splitDateTime(end);
+
+    if (!startParts.hhmm || !endParts.hhmm) {
+      return 'N/A';
+    }
+
+    if (startParts.datePart && endParts.datePart && startParts.datePart !== endParts.datePart) {
+      return `${startParts.datePart} ${startParts.hhmm} → ${endParts.datePart} ${endParts.hhmm}`;
+    }
+
+    return `${startParts.hhmm} → ${endParts.hhmm}`;
+  };
+
+  const getSlots = (item) => {
+    if (Array.isArray(item.slots) && item.slots.length > 0) {
+      return item.slots;
+    }
+
+    const view = item.availabilityView || '';
+    const start = item.startDateTime || options.startDateTime;
+    const interval = item.intervalMinutes || options.intervalMinutes || 30;
+    const slots = [];
+
+    const addMinutesLocal = (dateTime, minutesToAdd) => {
+      const [datePart = '', timePart = ''] = (dateTime || '').slice(0, 19).split('T');
+      if (!datePart || !timePart) {
+        return dateTime;
+      }
+
+      const [yearStr, monthStr, dayStr] = datePart.split('-');
+      const [hourStr, minuteStr, secondStr = '00'] = timePart.split(':');
+
+      let year = Number.parseInt(yearStr, 10);
+      let month = Number.parseInt(monthStr, 10);
+      let day = Number.parseInt(dayStr, 10);
+      let hour = Number.parseInt(hourStr, 10);
+      let minute = Number.parseInt(minuteStr, 10) + minutesToAdd;
+      const second = Number.parseInt(secondStr, 10);
+
+      const leap = (y) => (y % 4 === 0 && y % 100 !== 0) || (y % 400 === 0);
+      const dim = (y, m) => {
+        if (m === 2) return leap(y) ? 29 : 28;
+        if ([4, 6, 9, 11].includes(m)) return 30;
+        return 31;
+      };
+
+      while (minute >= 60) {
+        minute -= 60;
+        hour += 1;
+      }
+      while (hour >= 24) {
+        hour -= 24;
+        day += 1;
+        const monthDays = dim(year, month);
+        if (day > monthDays) {
+          day = 1;
+          month += 1;
+          if (month > 12) {
+            month = 1;
+            year += 1;
+          }
+        }
+      }
+
+      const pad2 = (v) => String(v).padStart(2, '0');
+      return `${year}-${pad2(month)}-${pad2(day)}T${pad2(hour)}:${pad2(minute)}:${pad2(second)}`;
+    };
+
+    for (let i = 0; i < view.length; i += 1) {
+      const slotStart = addMinutesLocal(start, i * interval);
+      const slotEnd = addMinutesLocal(slotStart, interval);
+      slots.push({
+        start: slotStart,
+        end: slotEnd,
+        status: mapStatus(view[i]),
+      });
+    }
+
+    return slots;
+  };
+
+  if (data.length === 1) {
+    const item = data[0];
+    const scheduleId = item.scheduleId || 'Unknown';
+    const segments = Array.isArray(item.segments) ? item.segments : [];
+
+    console.log('📅 Calendar Availability');
+    console.log('━'.repeat(60));
+    console.log(`👤 ${scheduleId}`);
+    console.log('━'.repeat(60));
+
+    if (segments.length === 0) {
+      console.log('No availability view data.');
+    } else {
+      const statusWidth = 16;
+      segments.forEach((segment) => {
+        const start = formatFullLocal(segment.start);
+        const end = formatFullLocal(segment.end);
+        const status = displayStatus(segment.status).padEnd(statusWidth, ' ');
+        const duration = Number.isFinite(segment.durationMinutes) ? segment.durationMinutes : 0;
+        console.log(`${start} → ${end}  ${status} (${duration} min)`);
+      });
+    }
+
+    if (details && item.scheduleItems && item.scheduleItems.length > 0) {
+      console.log('');
+      console.log('📝 Schedule Items');
+      console.log('━'.repeat(60));
+      item.scheduleItems.forEach((entry, index) => {
+        const start = entry.start?.dateTime ? formatDate(entry.start.dateTime) : 'N/A';
+        const end = entry.end?.dateTime ? formatDate(entry.end.dateTime) : 'N/A';
+        const status = entry.status || 'unknown';
+        const subject = entry.subject || '(No subject)';
+        const location = entry.location || '';
+
+        console.log(`[${index + 1}] ${start} → ${end}`);
+        console.log(`    Status: ${status}`);
+        console.log(`    Subject: ${subject}`);
+        if (location) {
+          console.log(`    Location: ${location}`);
+        }
+        console.log('');
+      });
+    }
+
+    return;
+  }
+
+  const users = data.map(item => item.scheduleId || 'Unknown');
+  const slotsByUser = data.map(item => getSlots(item));
+  const rowCount = Math.max(...slotsByUser.map(slots => slots.length), 0);
+
+  console.log('📅 Calendar Availability');
+  console.log('━'.repeat(60));
+
+  const userColumnWidth = Math.min(Math.max(...users.map(user => user.length), 'Working Elsewhere'.length, 12), 24);
+  const timeColumnWidth = 22;
+
+  const formatUser = (user) => {
+    const value = user.length > userColumnWidth ? `${user.slice(0, userColumnWidth - 3)}...` : user;
+    return value.padEnd(userColumnWidth, ' ');
+  };
+
+  const formatTime = (label) => {
+    const value = label.length > timeColumnWidth ? `${label.slice(0, timeColumnWidth - 3)}...` : label;
+    return value.padEnd(timeColumnWidth, ' ');
+  };
+
+  const slotHeader = formatTime('Time');
+  const userHeader = users.map(user => formatUser(user)).join(' | ');
+  console.log(`${slotHeader} | ${userHeader}`);
+  console.log('━'.repeat(Math.max(60, 11 + userHeader.length)));
+
+  for (let row = 0; row < rowCount; row++) {
+    const firstSlot = slotsByUser.find(slots => slots[row]);
+    const timeLabel = firstSlot
+      ? formatTimeRangeLabel(firstSlot[row].start, firstSlot[row].end)
+      : 'N/A';
+
+    const statuses = slotsByUser.map(slots => {
+      const status = slots[row]?.status || 'unknown';
+      return formatUser(displayStatus(status));
+    }).join(' | ');
+
+    console.log(`${formatTime(timeLabel)} | ${statuses}`);
+  }
+
+  if (details) {
+    console.log('');
+    console.log('📝 Schedule Items');
+    console.log('━'.repeat(60));
+    data.forEach((item) => {
+      const scheduleId = item.scheduleId || 'Unknown';
+      console.log(`👤 ${scheduleId}`);
+      if (!item.scheduleItems || item.scheduleItems.length === 0) {
+        console.log('    No schedule items.');
+        console.log('');
+        return;
+      }
+
+      item.scheduleItems.forEach((entry, index) => {
+        const start = entry.start?.dateTime ? formatDate(entry.start.dateTime) : 'N/A';
+        const end = entry.end?.dateTime ? formatDate(entry.end.dateTime) : 'N/A';
+        const status = entry.status || 'unknown';
+        const subject = entry.subject || '(No subject)';
+        const location = entry.location || '';
+
+        console.log(`  [${index + 1}] ${start} → ${end}`);
+        console.log(`      Status: ${status}`);
+        console.log(`      Subject: ${subject}`);
+        if (location) {
+          console.log(`      Location: ${location}`);
+        }
+      });
+      console.log('');
+    });
   }
 }
 
@@ -1015,6 +1256,7 @@ export default {
   outputCalendarList,
   outputCalendarDetail,
   outputCalendarResult,
+  outputAvailability,
   outputOneDriveList,
   outputOneDriveDetail,
   outputOneDriveResult,

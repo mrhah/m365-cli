@@ -1,6 +1,8 @@
 import graphClient from '../graph/client.js';
-import { outputCalendarList, outputCalendarDetail, outputCalendarResult } from '../utils/output.js';
+import { outputCalendarList, outputCalendarDetail, outputCalendarResult, outputAvailability } from '../utils/output.js';
 import { handleError } from '../utils/error.js';
+import { ensureWorkAccount } from '../utils/account.js';
+import { enrichScheduleResult } from '../utils/availability.js';
 
 /**
  * Calendar commands
@@ -259,10 +261,84 @@ export async function deleteEvent(id, options) {
   }
 }
 
+export async function getAvailability(options = {}) {
+  try {
+    ensureWorkAccount('calendar availability get');
+
+    const {
+      users,
+      startDateTime,
+      endDateTime,
+      interval = 30,
+      timezone,
+      details = false,
+      json = false,
+    } = options;
+
+    if (!users) {
+      throw new Error('Users are required');
+    }
+
+    if (!startDateTime) {
+      throw new Error('Start date/time is required');
+    }
+
+    if (!endDateTime) {
+      throw new Error('End date/time is required');
+    }
+
+    if (!Number.isFinite(interval) || interval <= 0) {
+      throw new Error('Interval must be a positive number');
+    }
+
+    const emails = users
+      .split(',')
+      .map(email => email.trim())
+      .filter(Boolean);
+
+    if (emails.length === 0) {
+      throw new Error('Users are required');
+    }
+
+    const resolvedTz = timezone || await graphClient.getTimezone();
+
+    const result = await graphClient.calendar.getSchedule(
+      emails,
+      startDateTime,
+      endDateTime,
+      {
+        availabilityViewInterval: interval,
+        timezone: resolvedTz,
+      }
+    );
+
+    const queryContext = {
+      startDateTime,
+      endDateTime,
+      timeZone: resolvedTz,
+      intervalMinutes: interval,
+    };
+
+    const enrichedResult = result.map(item => enrichScheduleResult(item, queryContext));
+
+    outputAvailability(enrichedResult, {
+      json,
+      details,
+      startDateTime,
+      endDateTime,
+      timeZone: resolvedTz,
+      intervalMinutes: interval,
+    });
+  } catch (error) {
+    handleError(error, { json: options.json });
+  }
+}
+
 export default {
   list: listEvents,
   get: getEvent,
   create: createEvent,
   update: updateEvent,
   delete: deleteEvent,
+  availability: getAvailability,
 };

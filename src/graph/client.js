@@ -514,6 +514,26 @@ class GraphClient {
     delete: async (id) => {
       return this.delete(`/me/events/${id}`);
     },
+    getSchedule: async (schedules, startTime, endTime, options = {}) => {
+      const { availabilityViewInterval = 30, timezone } = options;
+      const tz = timezone || await this.getTimezone();
+
+      const body = {
+        schedules,
+        startTime: {
+          dateTime: startTime,
+          timeZone: tz,
+        },
+        endTime: {
+          dateTime: endTime,
+          timeZone: tz,
+        },
+        availabilityViewInterval,
+      };
+
+      const response = await this.post('/me/calendar/getSchedule', body);
+      return response.value || [];
+    },
   };
   
   /**
