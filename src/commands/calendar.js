@@ -2,6 +2,7 @@ import graphClient from '../graph/client.js';
 import { outputCalendarList, outputCalendarDetail, outputCalendarResult, outputAvailability } from '../utils/output.js';
 import { handleError } from '../utils/error.js';
 import { ensureWorkAccount } from '../utils/account.js';
+import { enrichScheduleResult } from '../utils/availability.js';
 
 /**
  * Calendar commands
@@ -299,17 +300,35 @@ export async function getAvailability(options = {}) {
       throw new Error('Users are required');
     }
 
+    const resolvedTz = timezone || await graphClient.getTimezone();
+
     const result = await graphClient.calendar.getSchedule(
       emails,
       startDateTime,
       endDateTime,
       {
         availabilityViewInterval: interval,
-        timezone,
+        timezone: resolvedTz,
       }
     );
 
-    outputAvailability(result, { json, details });
+    const queryContext = {
+      startDateTime,
+      endDateTime,
+      timeZone: resolvedTz,
+      intervalMinutes: interval,
+    };
+
+    const enrichedResult = result.map(item => enrichScheduleResult(item, queryContext));
+
+    outputAvailability(enrichedResult, {
+      json,
+      details,
+      startDateTime,
+      endDateTime,
+      timeZone: resolvedTz,
+      intervalMinutes: interval,
+    });
   } catch (error) {
     handleError(error, { json: options.json });
   }

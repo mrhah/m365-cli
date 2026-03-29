@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import graphClient from '../../src/graph/client.js';
 import calendarCommands from '../../src/commands/calendar.js';
+import { enrichScheduleResult } from '../../src/utils/availability.js';
 import { getAvailableAccounts, setupAuth, teardownAuth } from './helpers/setup.js';
 
 const accounts = getAvailableAccounts({ workOnly: true });
@@ -113,6 +114,38 @@ describe('[Integration] Calendar Availability — Graph API', { timeout: 30000 }
 
         if (result30.length > 0 && result60.length > 0) {
           expect(result30[0].availabilityView.length).toBeGreaterThanOrEqual(result60[0].availabilityView.length);
+        }
+      });
+
+      it('should return enriched schedule data with slots and segments', async (ctx) => {
+        if (!hasAuth) return ctx.skip();
+
+        const start = new Date();
+        const end = new Date(Date.now() + 4 * 60 * 60 * 1000);
+        const me = await graphClient.getCurrentUser();
+        const email = me.mail || me.userPrincipalName;
+        const interval = 30;
+        const timeZone = await graphClient.getTimezone();
+
+        const result = await graphClient.calendar.getSchedule(
+          [email],
+          start.toISOString(),
+          end.toISOString(),
+          { availabilityViewInterval: interval, timezone: timeZone }
+        );
+
+        expect(Array.isArray(result)).toBe(true);
+        if (result.length > 0) {
+          const enriched = enrichScheduleResult(result[0], {
+            startDateTime: start.toISOString().slice(0, 19),
+            endDateTime: end.toISOString().slice(0, 19),
+            timeZone,
+            intervalMinutes: interval,
+          });
+
+          expect(Array.isArray(enriched.slots)).toBe(true);
+          expect(Array.isArray(enriched.segments)).toBe(true);
+          expect(Array.isArray(enriched.freeSegments)).toBe(true);
         }
       });
 
