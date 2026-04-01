@@ -4,12 +4,17 @@
  * Discovers available accounts from environment variables and provides
  * setupAuth/teardownAuth functions that handle the env-swap dance.
  *
- * Environment variables:
+ * Environment variables (Global cloud):
  *   M365_INTEGRATION_CLIENT_ID          — Azure AD app client ID (shared)
  *   M365_INTEGRATION_TENANT_ID          — Azure AD tenant ID (shared)
  *   M365_INTEGRATION_CREDS_PATH         — Work account credentials file
  *   M365_INTEGRATION_PERSONAL_CREDS_PATH — Personal account credentials file (optional)
  *   M365_INTEGRATION_SP_SITE            — SharePoint site URL (work only, optional)
+ *
+ * Environment variables (21Vianet / China cloud):
+ *   M365_INTEGRATION_CHINA_CLIENT_ID    — Azure AD app client ID (21Vianet)
+ *   M365_INTEGRATION_CHINA_TENANT_ID    — Azure AD tenant ID (21Vianet)
+ *   M365_INTEGRATION_CHINA_CREDS_PATH   — Work account credentials file (21Vianet)
  */
 
 import { existsSync } from 'fs';
@@ -21,24 +26,46 @@ import { loadCreds, getAccessToken } from '../../../src/auth/token-manager.js';
  *
  * @param {Object} [options]
  * @param {boolean} [options.workOnly=false] — only return work accounts
- * @returns {Array<{type: string, clientId: string, tenantId: string, credsPath: string}>}
+ * @param {string}  [options.cloud]          — filter by cloud: 'global', 'china', or undefined (all)
+ * @returns {Array<{type: string, cloud: string, clientId: string, tenantId: string, credsPath: string}>}
  */
-export function getAvailableAccounts({ workOnly = false } = {}) {
-  const clientId = process.env.M365_INTEGRATION_CLIENT_ID;
-  const tenantId = process.env.M365_INTEGRATION_TENANT_ID;
-
-  if (!clientId || !tenantId) return [];
-
+export function getAvailableAccounts({ workOnly = false, cloud } = {}) {
   const accounts = [];
-  const workCredsPath = process.env.M365_INTEGRATION_CREDS_PATH;
-  const personalCredsPath = process.env.M365_INTEGRATION_PERSONAL_CREDS_PATH;
 
-  if (workCredsPath) {
-    accounts.push({ type: 'work', clientId, tenantId, credsPath: workCredsPath });
+  // --- Global cloud accounts ---
+  if (!cloud || cloud === 'global') {
+    const clientId = process.env.M365_INTEGRATION_CLIENT_ID;
+    const tenantId = process.env.M365_INTEGRATION_TENANT_ID;
+
+    if (clientId && tenantId) {
+      const workCredsPath = process.env.M365_INTEGRATION_CREDS_PATH;
+      const personalCredsPath = process.env.M365_INTEGRATION_PERSONAL_CREDS_PATH;
+
+      if (workCredsPath) {
+        accounts.push({ type: 'work', cloud: 'global', clientId, tenantId, credsPath: workCredsPath });
+      }
+
+      if (!workOnly && personalCredsPath) {
+        accounts.push({ type: 'personal', cloud: 'global', clientId, tenantId, credsPath: personalCredsPath });
+      }
+    }
   }
 
-  if (!workOnly && personalCredsPath) {
-    accounts.push({ type: 'personal', clientId, tenantId, credsPath: personalCredsPath });
+  // --- 21Vianet (China) cloud accounts ---
+  if (!cloud || cloud === 'china') {
+    const chinaClientId = process.env.M365_INTEGRATION_CHINA_CLIENT_ID;
+    const chinaTenantId = process.env.M365_INTEGRATION_CHINA_TENANT_ID;
+    const chinaCredsPath = process.env.M365_INTEGRATION_CHINA_CREDS_PATH;
+
+    if (chinaClientId && chinaTenantId && chinaCredsPath) {
+      accounts.push({
+        type: 'work',
+        cloud: 'china',
+        clientId: chinaClientId,
+        tenantId: chinaTenantId,
+        credsPath: chinaCredsPath,
+      });
+    }
   }
 
   return accounts;
@@ -56,6 +83,7 @@ export async function setupAuth(account) {
     M365_CLIENT_ID: process.env.M365_CLIENT_ID,
     M365_TENANT_ID: process.env.M365_TENANT_ID,
     M365_CREDS_PATH: process.env.M365_CREDS_PATH,
+    M365_CLOUD: process.env.M365_CLOUD,
   };
 
   const resolvedCredsPath = account.credsPath.startsWith('~/')
@@ -72,6 +100,7 @@ export async function setupAuth(account) {
   process.env.M365_CLIENT_ID = account.clientId;
   process.env.M365_TENANT_ID = account.tenantId;
   process.env.M365_CREDS_PATH = resolvedCredsPath;
+  process.env.M365_CLOUD = account.cloud || 'global';
 
   try {
     const creds = loadCreds();
