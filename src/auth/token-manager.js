@@ -293,7 +293,7 @@ export async function getAccessToken() {
     
     const refreshed = await refreshToken(creds.refreshToken);
     
-    // Save new credentials (preserve grantedScopes)
+    // Save new credentials (preserve grantedScopes and cloud)
     const newCreds = {
       tenantId: config.get('tenantId'),
       clientId: config.get('clientId'),
@@ -302,6 +302,7 @@ export async function getAccessToken() {
       expiresAt: Math.floor(Date.now() / 1000) + refreshed.expiresIn,
       grantedScopes: creds.grantedScopes || [],
       accountType: creds.accountType || 'work',
+      cloud: creds.cloud || config.getActiveCloud(),
     };
     
     saveCreds(newCreds);
@@ -366,6 +367,7 @@ export async function forceRefreshAccessToken() {
       expiresAt: Math.floor(Date.now() / 1000) + refreshed.expiresIn,
       grantedScopes: creds.grantedScopes || [],
       accountType: creds.accountType || 'work',
+      cloud: creds.cloud || config.getActiveCloud(),
     };
     
     saveCreds(newCreds);
@@ -393,9 +395,39 @@ export async function forceRefreshAccessToken() {
  * @param {string} [options.addScopes] - Comma-separated scopes to add to defaults
  * @param {string} [options.exclude] - Comma-separated scopes to exclude from defaults
  */
-export async function login({ scopes, addScopes, exclude, accountType } = {}) {
+export async function login({ scopes, addScopes, exclude, accountType, cloud } = {}) {
+  // Validate and set cloud environment if specified
+  if (cloud) {
+    const validClouds = ['global', 'china'];
+    const normalizedCloud = cloud.toLowerCase();
+    if (!validClouds.includes(normalizedCloud)) {
+      throw new AuthError(`Invalid cloud: '${cloud}'. Valid options: ${validClouds.join(', ')}`);
+    }
+    process.env.M365_CLOUD = normalizedCloud;
+  }
+
   // Default account type is 'work'
   const effectiveAccountType = accountType || 'work';
+
+  // Guardrail: 21Vianet does not support personal Microsoft accounts (MSA)
+  const activeCloud = config.getActiveCloud();
+  if (activeCloud === 'china' && effectiveAccountType === 'personal') {
+    throw new AuthError(
+      '21Vianet (China) does not support personal Microsoft accounts.\n' +
+      '   Use --account-type work (default) with a 21Vianet tenant.'
+    );
+  }
+
+  // Guardrail: 21Vianet requires a custom app registration
+  if (activeCloud === 'china' && !process.env.M365_CLIENT_ID) {
+    console.log('⚠️  21Vianet (China) requires a custom Azure AD app registration.');
+    console.log('   The default app is registered in the Global cloud and will not work.');
+    console.log('');
+    console.log('   Register an app at https://portal.azure.cn and set:');
+    console.log('     export M365_TENANT_ID="your-china-tenant-id"');
+    console.log('     export M365_CLIENT_ID="your-china-client-id"');
+    console.log('');
+  }
 
   // Resolve final scope list
   let overrideScopes;
@@ -406,14 +438,14 @@ export async function login({ scopes, addScopes, exclude, accountType } = {}) {
     throw new AuthError('Cannot combine --scopes, --add-scopes, and --exclude. Use only one.');
   }
 
-  const GRAPH_PREFIX = 'https://graph.microsoft.com/';
+  const scopePrefix = config.get('scopePrefix');
 
   if (scopes) {
     // User specified exact scopes — normalize to full URIs
     overrideScopes = scopes.split(',').map(s => {
       s = s.trim();
       if (s === 'offline_access' || s.startsWith('https://')) return s;
-      return `${GRAPH_PREFIX}${s}`;
+      return `${scopePrefix}${s}`;
     });
     effectiveScopes = overrideScopes;
   } else if (addScopes) {
@@ -421,7 +453,7 @@ export async function login({ scopes, addScopes, exclude, accountType } = {}) {
     const additionalList = addScopes.split(',').map(s => {
       s = s.trim();
       if (s === 'offline_access' || s.startsWith('https://')) return s;
-      return `${GRAPH_PREFIX}${s}`;
+      return `${scopePrefix}${s}`;
     });
     const defaultScopes = getDefaultScopes(effectiveAccountType);
     overrideScopes = [...new Set([...defaultScopes, ...additionalList])];
@@ -429,14 +461,14 @@ export async function login({ scopes, addScopes, exclude, accountType } = {}) {
 
     const added = additionalList.filter(s => !defaultScopes.includes(s));
     if (added.length > 0) {
-      console.log(`ℹ️  Adding scopes: ${added.map(s => s.replace(GRAPH_PREFIX, '')).join(', ')}\n`);
+      console.log(`ℹ️  Adding scopes: ${added.map(s => s.replace(scopePrefix, '')).join(', ')}\n`);
     }
   } else if (exclude) {
     // User wants to exclude specific scopes from defaults
     const excludeList = exclude.split(',').map(s => {
       s = s.trim();
       if (s === 'offline_access' || s.startsWith('https://')) return s;
-      return `${GRAPH_PREFIX}${s}`;
+      return `${scopePrefix}${s}`;
     });
     const defaultScopes = getDefaultScopes(effectiveAccountType);
     overrideScopes = defaultScopes.filter(s => !excludeList.includes(s));
@@ -444,7 +476,7 @@ export async function login({ scopes, addScopes, exclude, accountType } = {}) {
 
     const removed = defaultScopes.filter(s => excludeList.includes(s));
     if (removed.length > 0) {
-      console.log(`ℹ️  Excluding scopes: ${removed.map(s => s.replace(GRAPH_PREFIX, '')).join(', ')}\n`);
+      console.log(`ℹ️  Excluding scopes: ${removed.map(s => s.replace(scopePrefix, '')).join(', ')}\n`);
     }
   } else {
     // Default — use all scopes from config
@@ -470,6 +502,7 @@ export async function login({ scopes, addScopes, exclude, accountType } = {}) {
     // Detect actual account type from JWT (pass user hint for opaque MSA tokens)
     const detectedType = detectAccountType(result.accessToken, effectiveAccountType);
     
+    const activeCloud = config.getActiveCloud();
     const creds = {
       tenantId: config.get('tenantId'),
       clientId: config.get('clientId'),
@@ -478,13 +511,16 @@ export async function login({ scopes, addScopes, exclude, accountType } = {}) {
       expiresAt: Math.floor(Date.now() / 1000) + result.expiresIn,
       grantedScopes: effectiveScopes,
       accountType: detectedType,
+      cloud: activeCloud,
     };
     
     saveCreds(creds);
     
     const typeLabel = detectedType === 'personal' ? 'Personal Microsoft Account' : 'Work/School Account';
+    const cloudLabel = activeCloud === 'china' ? '21Vianet (China)' : 'Global';
     console.log('\n✅ Authentication successful!');
     console.log(`   Account type: ${typeLabel}`);
+    console.log(`   Cloud: ${cloudLabel}`);
     console.log(`   Credentials saved to: ${config.getCredsPath()}`);
     
     return true;

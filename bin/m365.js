@@ -31,6 +31,7 @@ program
 program
   .command('login')
   .description('Authenticate with Microsoft 365')
+  .option('--cloud <cloud>', 'Cloud environment: global (default) or china (21Vianet)')
   .option('--scopes <scopes>', 'Comma-separated list of scopes to request (overrides defaults)')
   .option('--exclude <scopes>', 'Comma-separated list of scopes to exclude from defaults')
   .option('--add-scopes <scopes>', 'Comma-separated list of scopes to add to defaults')
@@ -42,6 +43,7 @@ program
         addScopes: options.addScopes,
         exclude: options.exclude,
         accountType: options.accountType,
+        cloud: options.cloud,
       });
     } catch (error) {
       handleError(error);
