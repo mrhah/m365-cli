@@ -12,10 +12,26 @@ vi.mock('../../src/utils/config.js', () => ({
         workScopes: ['Mail.Read', 'Files.Read'],
         personalScopes: ['Mail.Read', 'Files.Read'],
         authUrl: 'https://login.microsoftonline.com',
+        scopePrefix: 'https://graph.microsoft.com/',
+        deviceLoginUrl: 'https://microsoft.com/devicelogin',
       };
       return config[key];
     }),
     getCredsPath: vi.fn(() => '/home/testuser/.m365-cli/credentials.json'),
+    getActiveCloud: vi.fn(() => 'global'),
+    getCloudConfig: vi.fn(() => ({
+      graphApiUrl: 'https://graph.microsoft.com/v1.0',
+      authUrl: 'https://login.microsoftonline.com',
+      deviceLoginUrl: 'https://microsoft.com/devicelogin',
+      scopePrefix: 'https://graph.microsoft.com/',
+    })),
+    applyScopes: vi.fn((scopes, prefix) => {
+      if (!scopes || !Array.isArray(scopes)) return scopes;
+      return scopes.map(s => {
+        if (s === 'offline_access' || s.startsWith('https://')) return s;
+        return `${prefix}${s}`;
+      });
+    }),
   },
 }));
 

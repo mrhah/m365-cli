@@ -29,6 +29,7 @@ That said, it works perfectly as a standalone CLI tool for power users who prefe
 - 🔐 **Secure**: OAuth 2.0 Device Code Flow authentication
 - 🚀 **Fast**: Minimal dependencies, uses native Node.js fetch
 - 🤖 **AI-friendly**: Clean text output + JSON option
+- 🇨🇳 **21Vianet (China)**: Support for Microsoft 365 operated by 21Vianet
 
 ## Installation
 
@@ -56,6 +57,9 @@ m365 login
 
 # Personal Microsoft account (Outlook.com, Hotmail, Live)
 m365 login --account-type personal
+
+# 21Vianet (China) cloud — requires custom app, see below
+m365 login --cloud china
 ```
 
 Follow the prompts to authenticate using Device Code Flow.
@@ -85,6 +89,7 @@ m365 onedrive ls
 ```bash
 m365 login [options]           # Login with Device Code Flow
   --account-type <type>        # Account type: 'work' (default) or 'personal'
+  --cloud <cloud>              # Cloud environment: 'global' (default) or 'china'
   --scopes <scopes>            # Comma-separated scopes to request (overrides defaults)
   --add-scopes <scopes>        # Comma-separated scopes to add to defaults
   --exclude <scopes>           # Comma-separated scopes to exclude from defaults
@@ -495,6 +500,79 @@ m365 user search <name> [options]
 m365 user search "John"
 m365 user search "John" --top 5 --json
 ```
+
+## 21Vianet (China) Support
+
+M365 CLI supports **Microsoft 365 operated by 21Vianet** (世纪互联), the China-specific deployment of Microsoft 365. This uses separate Azure AD and Microsoft Graph endpoints hosted in China.
+
+### Quick Start (China)
+
+```bash
+# Set your custom app credentials (required — no shared app for 21Vianet)
+export M365_TENANT_ID="your-china-tenant-id"
+export M365_CLIENT_ID="your-china-client-id"
+
+# Login to 21Vianet cloud
+m365 login --cloud china
+```
+
+### Registering an Azure AD App for 21Vianet
+
+21Vianet uses a separate Azure portal. You **must** register your own app — the default shared app only works with Global cloud.
+
+1. Sign in to [Azure China Portal](https://portal.azure.cn)
+2. Navigate to: **Microsoft Entra ID** > **App registrations** > **New registration**
+3. Configure the application:
+   - **Name**: `M365 CLI` (or your preferred name)
+   - **Supported account types**: **"Accounts in this organizational directory only"**
+   - **Redirect URI**: Leave empty
+4. Click **Register**
+5. Go to **Authentication** > **Advanced settings** > set **"Allow public client flows"** to **Yes** > **Save**
+6. Go to **API permissions** > **Add a permission** > **Microsoft Graph** > **Delegated permissions**
+7. Add the same permissions as [listed above](#permissions): `Mail.ReadWrite`, `Mail.Send`, `Calendars.ReadWrite`, `MailboxSettings.Read`, `Files.ReadWrite`, `User.Read`, `User.ReadBasic.All`, `Contacts.Read`
+8. Click **Grant admin consent**
+
+Then configure:
+
+```bash
+export M365_TENANT_ID="your-china-tenant-id"
+export M365_CLIENT_ID="your-china-client-id"
+```
+
+### How Cloud Selection Works
+
+The CLI determines which cloud to use with the following priority:
+
+1. **`--cloud` flag** on `m365 login` — highest priority
+2. **`M365_CLOUD` environment variable** — set to `global` or `china`
+3. **Saved credentials** — the cloud used at last login is remembered
+4. **Config default** — falls back to `global`
+
+Once logged in, the cloud is stored in your credentials file and used automatically for all subsequent commands.
+
+### Endpoint Differences
+
+| | Global | 21Vianet (China) |
+|---|---|---|
+| **Graph API** | `graph.microsoft.com` | `microsoftgraph.chinacloudapi.cn` |
+| **Auth endpoint** | `login.microsoftonline.com` | `login.chinacloudapi.cn` |
+| **Device login** | `microsoft.com/devicelogin` | `login.chinacloudapi.cn/common/oauth2/deviceauth` |
+| **Azure portal** | `portal.azure.com` | `portal.azure.cn` |
+
+### Limitations
+
+- **Personal Microsoft accounts are not supported** on 21Vianet. Only work/school accounts can authenticate. Using `--cloud china --account-type personal` will produce an error.
+- **SharePoint Online** availability depends on your 21Vianet tenant subscription.
+- **Some Graph API features** may not be available in the China cloud. See [Microsoft Graph national cloud deployments](https://learn.microsoft.com/en-us/graph/deployments) for details.
+
+### Environment Variables Reference
+
+| Variable | Description | Example |
+|---|---|---|
+| `M365_CLOUD` | Cloud environment (`global` or `china`) | `china` |
+| `M365_TENANT_ID` | Azure AD tenant ID | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
+| `M365_CLIENT_ID` | Azure AD app client ID | `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx` |
+| `M365_TIMEZONE` | Timezone override | `Asia/Shanghai` |
 
 ## Configuration
 

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { loadCreds, isTokenExpired, getAccessToken, refreshToken } from '../../src/auth/token-manager.js';
+import config from '../../src/utils/config.js';
 import { getAvailableAccounts, setupAuth, teardownAuth } from './helpers/setup.js';
 
 const accounts = getAvailableAccounts();
@@ -13,7 +14,7 @@ describe('[Integration] Token Manager — Azure AD', { timeout: 30000 }, () => {
     return;
   }
 
-  describe.each(accounts)('$type account', (account) => {
+  describe.each(accounts)('$type account ($cloud)', (account) => {
     let hasAuth = false;
     let savedEnv = {};
 
@@ -142,7 +143,8 @@ describe('[Integration] Token Manager — Azure AD', { timeout: 30000 }, () => {
 
         const token = await getAccessToken();
 
-        const response = await fetch('https://graph.microsoft.com/v1.0/me?$select=id,displayName', {
+        const graphApiUrl = config.get('graphApiUrl');
+        const response = await fetch(`${graphApiUrl}/me?$select=id,displayName`, {
           headers: {
             'Authorization': `Bearer ${token}`,
           },

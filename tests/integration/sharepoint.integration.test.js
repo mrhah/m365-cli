@@ -3,7 +3,10 @@ import graphClient from '../../src/graph/client.js';
 import sharepointCommands from '../../src/commands/sharepoint.js';
 import { getAvailableAccounts, setupAuth, teardownAuth } from './helpers/setup.js';
 
-const INTEGRATION_SP_SITE = process.env.M365_INTEGRATION_SP_SITE;
+const SP_SITES = {
+  global: process.env.M365_INTEGRATION_SP_SITE,
+  china: process.env.M365_INTEGRATION_CHINA_SP_SITE,
+};
 
 // SharePoint is work-account only
 const accounts = getAvailableAccounts({ workOnly: true });
@@ -31,10 +34,11 @@ describe('[Integration] SharePoint — Graph API', { timeout: 30000 }, () => {
     return;
   }
 
-  describe.each(accounts)('$type account', (account) => {
+  describe.each(accounts)('$type account ($cloud)', (account) => {
     let hasAuth = false;
     let savedEnv = {};
     let resolvedSiteId = null;
+    const INTEGRATION_SP_SITE = SP_SITES[account.cloud];
 
     beforeAll(async () => {
       const result = await setupAuth(account);
@@ -62,7 +66,7 @@ describe('[Integration] SharePoint — Graph API', { timeout: 30000 }, () => {
 
         for (const site of sites) {
           expect(site).toHaveProperty('id');
-          expect(site).toHaveProperty('name');
+          expect(site.name || site.displayName).toBeTruthy();
           expect(site).toHaveProperty('webUrl');
         }
       } catch (error) {

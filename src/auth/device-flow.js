@@ -137,8 +137,7 @@ export async function deviceCodeFlow({ overrideScopes, overrideTenant } = {}) {
   const deviceCodeData = await requestDeviceCode({ overrideScopes, overrideTenant });
   
   // Step 2: Show user instructions
-  // Always use /devicelogin — the shortened /link URL can reject valid codes
-  const authPageUrl = 'https://microsoft.com/devicelogin';
+  const authPageUrl = config.get('deviceLoginUrl');
   console.log('━'.repeat(60));
   console.log('📱 Please authenticate:');
   console.log('');

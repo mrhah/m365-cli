@@ -28,7 +28,7 @@ describe('[Integration] Calendar Availability — Graph API', { timeout: 30000 }
     return;
   }
 
-  describe.each(accounts)('$type account', (account) => {
+  describe.each(accounts)('$type account ($cloud)', (account) => {
     let hasAuth = false;
     let savedEnv = {};
 

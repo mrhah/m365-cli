@@ -3,6 +3,7 @@
  */
 
 import { getAccountType } from '../auth/token-manager.js';
+import config from './config.js';
 
 export class M365Error extends Error {
   constructor(message, code, details = null) {
@@ -92,8 +93,9 @@ export function handleError(error, options = {}) {
       console.error('      m365 login --scopes User.Read,User.ReadBasic.All,Contacts.Read,Mail.Send,Files.ReadWrite,offline_access');
       console.error('');
       console.error('   3. Ask your tenant admin to grant consent:');
-      const clientId = '091b3d7b-e217-4410-868c-01c3ee6189b6';
-      console.error(`      https://login.microsoftonline.com/{tenantId}/adminconsent?client_id=${clientId}`);
+      const clientId = config.get('clientId');
+      const authUrl = config.get('authUrl');
+      console.error(`      ${authUrl}/{tenantId}/adminconsent?client_id=${clientId}`);
       console.error('      (Replace {tenantId} with your Azure AD tenant ID)');
       console.error('');
     }

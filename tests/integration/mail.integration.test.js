@@ -33,7 +33,7 @@ describe('[Integration] Mail — Graph API', { timeout: 90000 }, () => {
     return;
   }
 
-  describe.each(accounts)('$type account', (account) => {
+  describe.each(accounts)('$type account ($cloud)', (account) => {
     let hasAuth = false;
     let savedEnv = {};
 
