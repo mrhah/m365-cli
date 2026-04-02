@@ -88,3 +88,34 @@ jobs:
       - name: Cleanup credentials
         if: always()
         run: rm -rf /tmp/m365-integration
+
+  integration-tests-china:
+    name: Integration Tests (21Vianet China)
+    runs-on: ubuntu-latest
+    needs: unit-tests
+    if: always() && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+      - run: npm ci
+
+      - name: Write integration credentials file
+        run: |
+          mkdir -p /tmp/m365-integration
+          echo '${{ secrets.M365_INTEGRATION_CHINA_CREDS }}' > /tmp/m365-integration/china-credentials.json
+          chmod 600 /tmp/m365-integration/china-credentials.json
+
+      - name: Run integration tests (21Vianet China)
+        env:
+          M365_INTEGRATION_CHINA_CLIENT_ID: ${{ secrets.M365_INTEGRATION_CHINA_CLIENT_ID }}
+          M365_INTEGRATION_CHINA_TENANT_ID: ${{ secrets.M365_INTEGRATION_CHINA_TENANT_ID }}
+          M365_INTEGRATION_CHINA_CREDS_PATH: /tmp/m365-integration/china-credentials.json
+          M365_INTEGRATION_CHINA_SP_SITE: ${{ secrets.M365_INTEGRATION_CHINA_SP_SITE }}
+        run: npm run test:integration
+
+      - name: Cleanup credentials
+        if: always()
+        run: rm -rf /tmp/m365-integration

@@ -9,8 +9,15 @@ import { ApiError, parseGraphError } from '../utils/error.js';
 
 class GraphClient {
   constructor() {
-    this.baseUrl = config.get('graphApiUrl');
     this._cachedTimezone = null;
+  }
+
+  /**
+   * Get the base URL for Graph API requests.
+   * Resolved dynamically so cloud changes (e.g. in tests) are picked up.
+   */
+  get baseUrl() {
+    return config.get('graphApiUrl');
   }
   
   

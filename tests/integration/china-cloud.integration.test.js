@@ -94,7 +94,13 @@ describe('[Integration] 21Vianet (China) Cloud — Graph API', { timeout: 60000 
       it('should list calendar events via China Graph endpoint', async (ctx) => {
         if (!hasAuth) return ctx.skip();
 
-        const events = await graphClient.calendar.list({ days: 7, top: 5 });
+        const now = new Date();
+        const later = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+        const events = await graphClient.calendar.list({
+          startDateTime: now.toISOString(),
+          endDateTime: later.toISOString(),
+          top: 5,
+        });
 
         expect(Array.isArray(events)).toBe(true);
       });
@@ -102,7 +108,7 @@ describe('[Integration] 21Vianet (China) Cloud — Graph API', { timeout: 60000 
       it('should list OneDrive root via China Graph endpoint', async (ctx) => {
         if (!hasAuth) return ctx.skip();
 
-        const items = await graphClient.onedrive.list({ top: 5 });
+        const items = await graphClient.onedrive.list('', { top: 5 });
 
         expect(Array.isArray(items)).toBe(true);
       });
